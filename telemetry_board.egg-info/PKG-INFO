@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: telemetry-board
+Version: 0.1.0
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: celery>=5.3
+Requires-Dist: redis>=5.0
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: psycopg[binary]>=3.1
+Requires-Dist: alembic>=1.13
+Requires-Dist: prometheus-client>=0.20
+Requires-Dist: requests>=2.32
+Requires-Dist: pydantic>=2.7
+Requires-Dist: python-dotenv>=1.0
+Dynamic: license-file
