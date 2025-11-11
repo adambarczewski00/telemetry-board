@@ -396,7 +396,7 @@ Plan testów (backend)
   - test_alert_metrics_increment — ✔️ tests/test_alerts_metrics.py
   - test_beat_schedule_assets_interval — ✔️ (istnieje schedule test)
 - Retencja
-  - test_retention_task_removes_old_rows — dodać
+  - test_retention_task_removes_old_rows — ✔️ tests/test_retention.py
 
 Akceptacja (backend)
 - Po 2–5 minutach od startu: `/prices?asset=BTC&window=24h` zwraca punkty; `/prices/summary` zwraca statystyki.
