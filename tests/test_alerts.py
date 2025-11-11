@@ -33,3 +33,40 @@ def test_get_alerts_invalid_asset(monkeypatch: MonkeyPatch, tmp_path: Path) -> N
     resp = client.get("/alerts/", params={"asset": "NOPE"})
     assert resp.status_code == 404
 
+
+def test_get_alerts_limit_and_order(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy.orm import Session
+    from sqlalchemy import select
+    from app.db import get_engine
+    from app.models import Asset, Alert
+
+    client = _client(monkeypatch, tmp_path)
+
+    # Ensure asset exists via API
+    _create_asset(client, "BTC")
+
+    # Insert multiple alerts with different timestamps
+    session = Session(bind=get_engine())
+    try:
+        asset = session.execute(select(Asset).where(Asset.symbol == "BTC")).scalar_one()
+        now = datetime.now(timezone.utc)
+        session.add_all(
+            [
+                Alert(asset_id=asset.id, triggered_at=now - timedelta(minutes=10), window_minutes=60, change_pct=3.0),
+                Alert(asset_id=asset.id, triggered_at=now - timedelta(minutes=5), window_minutes=60, change_pct=4.0),
+                Alert(asset_id=asset.id, triggered_at=now - timedelta(minutes=1), window_minutes=60, change_pct=5.0),
+            ]
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    # Limit to 2 – should return the two most recent in desc order
+    resp = client.get("/alerts/", params={"asset": "BTC", "limit": 2})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 2
+    # Desc order by triggered_at: latest first (change_pct 5.0 then 4.0)
+    assert body[0]["change_pct"] == 5.0
+    assert body[1]["change_pct"] == 4.0
