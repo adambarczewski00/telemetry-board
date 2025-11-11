@@ -73,3 +73,13 @@ def test_price_summary_stats(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     assert body["first"] == 105.0
     assert body["last"] == 105.0
 
+
+def test_price_summary_invalid_window(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    client = _client(monkeypatch, tmp_path)
+    # Create asset via API
+    r = client.post("/assets/", json={"symbol": "BTC"})
+    assert r.status_code == 201
+
+    r = client.get("/prices/summary", params={"asset": "BTC", "window": "bad-window"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "invalid window"
