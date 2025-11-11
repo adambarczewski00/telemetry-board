@@ -31,8 +31,7 @@ def _start_metrics_server() -> None:
     start_http_server(port)
 
 
-@signals.worker_ready.connect
-def _on_worker_ready(sender: object | None = None, **kwargs: object) -> None:  # type: ignore[no-redef]
+def _on_worker_ready(sender: object | None = None, **kwargs: object) -> None:
     """Start metrics HTTP server only in actual worker processes.
 
     Avoids binding the port when running celery CLI commands like `call` or in
@@ -52,6 +51,10 @@ def _on_worker_ready(sender: object | None = None, **kwargs: object) -> None:  #
                 celery_app.send_task("seed_mock_prices", args=[sym, seed_hours])
     except Exception as exc:  # pragma: no cover - defensive
         logging.getLogger(__name__).warning("seed_mock_prices dispatch failed: %s", exc)
+
+
+# Connect the handler without using a decorator to keep mypy happy
+signals.worker_ready.connect(_on_worker_ready)
 
 
 @celery_app.task
