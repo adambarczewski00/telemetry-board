@@ -3,10 +3,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 import time
 
+import logging
 import requests
 from prometheus_client import Counter, Histogram
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.db import get_engine
 from app.models import Asset, PriceHistory
@@ -68,10 +69,8 @@ def _get_market_chart_usd(symbol: str, hours: int = 24) -> list[tuple[datetime, 
         raise ValueError("unsupported asset symbol")
     # CoinGecko accepts fractional days; use 1 for <=24h, ceil for more.
     days = max(1.0, hours / 24.0)
-    url = (
-        f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=usd&days={days}&interval=minute"
-    )
-    resp = requests.get(url, timeout=15)
+    url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=usd&days={days}&interval=minute"
+    resp = requests.get(url, timeout=20)
     resp.raise_for_status()
     data = resp.json()
     series = []
@@ -80,6 +79,9 @@ def _get_market_chart_usd(symbol: str, hours: int = 24) -> list[tuple[datetime, 
         ts = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
         if ts >= cutoff:
             series.append((ts, float(price)))
+    logging.getLogger(__name__).info(
+        "market_chart %s %sh → %s points", symbol, hours, len(series)
+    )
     return series
 
 
@@ -122,7 +124,7 @@ def fetch_price(self: object, symbol: str) -> float:
 
 
 @celery_app.task(bind=True, name="backfill_prices")
-def backfill_prices(self: object, symbol: str, hours: int = 24) -> int:
+def backfill_prices(self: object, symbol: str, hours: int = 168) -> int:
     """Backfill recent price history for an asset.
 
     Returns the number of points inserted. Safe to run multiple times; duplicates
@@ -142,7 +144,9 @@ def backfill_prices(self: object, symbol: str, hours: int = 24) -> int:
     db = _session()
     inserted = 0
     try:
-        asset = db.execute(select(Asset).where(Asset.symbol == symbol_u)).scalar_one_or_none()
+        asset = db.execute(
+            select(Asset).where(Asset.symbol == symbol_u)
+        ).scalar_one_or_none()
         if asset is None:
             asset = Asset(symbol=symbol_u, name=None)
             db.add(asset)
@@ -158,6 +162,49 @@ def backfill_prices(self: object, symbol: str, hours: int = 24) -> int:
             except Exception:
                 # Likely unique constraint violation; drop and continue
                 db.rollback()
+        logging.getLogger(__name__).info(
+            "backfill %s %sh → inserted=%s (fetched=%s)",
+            symbol_u,
+            hours,
+            inserted,
+            len(points),
+        )
         return inserted
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, name="ensure_backfill")
+def ensure_backfill(self: object, symbol: str, hours: int = 168) -> int:
+    """Ensure there is at least `hours` of history for `symbol`.
+
+    If the earliest stored timestamp is newer than now - hours, trigger a backfill.
+    Returns number of points inserted by the backfill (0 if already satisfied).
+    """
+    symbol_u = symbol.upper()
+    db = _session()
+    try:
+        asset = db.execute(
+            select(Asset).where(Asset.symbol == symbol_u)
+        ).scalar_one_or_none()
+        if asset is None:
+            # No asset yet → run backfill which will create it lazily
+            return backfill_prices(symbol=symbol_u, hours=hours)  # type: ignore[misc]
+
+        # Find earliest stored timestamp
+        oldest = db.execute(
+            select(func.min(PriceHistory.ts)).where(PriceHistory.asset_id == asset.id)
+        ).scalar_one()
+        if oldest is None:
+            return backfill_prices(symbol=symbol_u, hours=hours)  # type: ignore[misc]
+
+        # Normalize potential offset-naive datetimes (e.g., SQLite) to UTC
+        if oldest.tzinfo is None:
+            oldest = oldest.replace(tzinfo=timezone.utc)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        if oldest <= cutoff:
+            return 0
+        # Not enough history yet → run a full backfill window
+        return backfill_prices(symbol=symbol_u, hours=hours)  # type: ignore[misc]
     finally:
         db.close()

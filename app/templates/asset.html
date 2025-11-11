@@ -9,9 +9,17 @@
 
 <article>
   <header>
-    <strong>Price history (24h)</strong>
+    <strong>Price history (<span id="window-label">24h</span>)</strong>
     <div style="float:right">
-      <small>Last: <span id="last-price" class="num">—</span> · 24h: <span id="last-change" class="num">—</span></small>
+      <small>Last: <span id="last-price" class="num">—</span> · <span id="window-label-inline">24h</span>: <span id="last-change" class="num">—</span></small>
+    </div>
+    <div style="margin-top: .5rem">
+      <small>Window:</small>
+      <div role="group" aria-label="Select window">
+        <button class="secondary" data-window="1h">1h</button>
+        <button class="secondary" data-window="24h">24h</button>
+        <button class="secondary" data-window="7d">7d</button>
+      </div>
     </div>
   </header>
   <canvas id="chart" height="100"></canvas>
@@ -34,6 +42,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
   const SYMBOL = {{ symbol|tojson }};
+  let WINDOW = '24h';
 
   async function fetchJSON(url) {
     const r = await fetch(url);
@@ -47,13 +56,33 @@
     chart = new Chart(ctx, {
       type: 'line',
       data: { labels: [], datasets: [{ label: SYMBOL, data: [], fill: false, tension: 0.2 }] },
-      options: { scales: { x: { ticks: { maxTicksLimit: 8 } } } }
+      options: {
+        interaction: { intersect: false, mode: 'index' },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8 } },
+          y: {
+            ticks: {
+              callback: (v) => new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
+            }
+          }
+        }
+      }
     });
     return chart;
   }
 
+  function fmtLabel(ts) {
+    const d = new Date(ts);
+    if (WINDOW === '7d') {
+      return new Intl.DateTimeFormat(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d);
+    }
+    // 1h / 24h
+    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(d);
+  }
+
   async function loadChart() {
-    const prices = await fetchJSON(`/prices?asset=${encodeURIComponent(SYMBOL)}&window=24h`);
+    const prices = await fetchJSON(`/prices?asset=${encodeURIComponent(SYMBOL)}&window=${encodeURIComponent(WINDOW)}`);
     const empty = document.getElementById('chart-empty');
     if (!prices.length) {
       empty.style.display = '';
@@ -66,7 +95,7 @@
       return;
     }
     empty.style.display = 'none';
-    const labels = prices.map(p => new Date(p.ts).toLocaleTimeString());
+    const labels = prices.map(p => fmtLabel(p.ts));
     const data = prices.map(p => Number(p.price));
     // Update summary
     const first = data[0];
@@ -109,6 +138,19 @@
     loadChart();
     loadAlerts();
   }
+
+  // Window selector wiring
+  const windowButtons = Array.from(document.querySelectorAll('button[data-window]'));
+  function updateWindow(newWin) {
+    WINDOW = newWin;
+    document.getElementById('window-label').textContent = WINDOW;
+    document.getElementById('window-label-inline').textContent = WINDOW;
+    windowButtons.forEach(b => b.classList.toggle('contrast', b.dataset.window === WINDOW));
+    loadChart();
+  }
+  windowButtons.forEach(btn => btn.addEventListener('click', () => updateWindow(btn.dataset.window)));
+  // Set default highlight
+  updateWindow('24h');
 
   refresh();
   setInterval(refresh, 15000);

@@ -132,6 +132,10 @@ celery -A worker.worker_app.celery_app worker --loglevel=info
   - `ENABLE_BEAT` — włącza harmonogram zadań (fetch/prune/alerts).
   - `ASSETS` — lista symboli do pobierania, np. `BTC,ETH`.
   - `FETCH_INTERVAL_SECONDS` — interwał pobierania cen (domyślnie: 300).
+  - Backfill: `ENABLE_BACKFILL_ON_START` — czy uruchamiać backfill przy starcie Beat (domyślnie: włączone) oraz
+    `BACKFILL_HOURS` — ile godzin cofnąć dane przy backfillu (domyślnie: 168 = 7 dni; wymagane, by działało okno 7d w UI).
+    Dodatkowo `BACKFILL_CHECK_SECONDS` — jak często wykonywać zadanie kontrolne `ensure_backfill` (domyślnie: 600s),
+    które dogania braki jeśli backfill startowy się nie powiódł.
   - `ALERT_WINDOW_MINUTES` — okno liczenia alertów (domyślnie: 60).
   - `ALERT_THRESHOLD_PCT` — próg alertu w % (domyślnie: 5).
   - Retencja: `RETENTION_DAYS` — ile dni trzymać próbki (domyślnie: 30; ustaw `0`, aby wyłączyć sprzątanie) oraz

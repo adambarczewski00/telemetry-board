@@ -154,6 +154,10 @@ If you want, I can also add a GHCR-based CD (build images in CI, docker compose 
   - `ENABLE_BEAT` — aktywuje harmonogram zadań (fetch/prune/alerts).
   - `ASSETS` — lista symboli do pobierania, np. `BTC,ETH`.
   - `FETCH_INTERVAL_SECONDS` — co ile sekund pobierać ceny (domyślnie 300).
+  - Backfill: `ENABLE_BACKFILL_ON_START` — uruchom backfill przy starcie Beata (domyślnie: włączone) oraz
+    `BACKFILL_HOURS` — rozmiar backfillu w godzinach (domyślnie 168 = 7 dni, aby UI 7d miało dane).
+    `BACKFILL_CHECK_SECONDS` — interwał okresowego zadania `ensure_backfill` (domyślnie 600s),
+    które nadrabia historię jeśli startowy backfill nie doszedł do skutku (np. kolejność startu usług).
   - `ALERT_WINDOW_MINUTES` — okno czasowe dla alertów (domyślnie 60).
   - `ALERT_THRESHOLD_PCT` — próg procentowy dla alertu (domyślnie 5).
   - Retencja danych:

@@ -5,6 +5,8 @@ from typing import Final
 from datetime import timedelta
 from celery import Celery
 from prometheus_client import start_http_server
+from celery import signals
+import logging
 from celery.schedules import schedule as sched
 from worker.schedule import build_beat_schedule, LazyBeatSchedule
 
@@ -29,9 +31,27 @@ def _start_metrics_server() -> None:
     start_http_server(port)
 
 
-if _enable_metrics():
-    # Start the HTTP listener as soon as the module is imported by Celery.
-    _start_metrics_server()
+@signals.worker_ready.connect
+def _on_worker_ready(sender: object | None = None, **kwargs: object) -> None:  # type: ignore[no-redef]
+    """Start metrics HTTP server only in actual worker processes.
+
+    Avoids binding the port when running celery CLI commands like `call` or in
+    non-worker processes (e.g., Beat), which only import the module.
+    """
+    if _enable_metrics():
+        _start_metrics_server()
+
+    # Trigger an immediate ensure_backfill on worker startup to self-heal
+    # Removed for portfolio setup: no automatic backfill
+
+    # Optionally seed mock data for portfolio/demo use
+    try:
+        if os.getenv("ENABLE_MOCK_SEED", "false").lower() in {"1", "true", "yes", "on"}:
+            seed_hours = int(os.getenv("MOCK_SEED_HOURS", "168"))
+            for sym in _parse_assets_env():
+                celery_app.send_task("seed_mock_prices", args=[sym, seed_hours])
+    except Exception as exc:  # pragma: no cover - defensive
+        logging.getLogger(__name__).warning("seed_mock_prices dispatch failed: %s", exc)
 
 
 @celery_app.task
@@ -52,6 +72,10 @@ except Exception:
     pass
 try:
     import worker.tasks.maintenance  # noqa: F401
+except Exception:
+    pass
+try:
+    import worker.tasks.seed  # noqa: F401
 except Exception:
     pass
 
@@ -89,30 +113,4 @@ def _build_schedule_from_env() -> dict[str, dict]:
 celery_app.conf.beat_schedule = LazyBeatSchedule(_build_schedule_from_env)
 
 
-def _maybe_trigger_backfill_on_start() -> None:
-    """Optionally enqueue backfill tasks when Beat starts.
-
-    We do this only in the Beat process (ENABLE_BEAT=true) to avoid duplicates.
-    Controlled via env ENABLE_BACKFILL_ON_START (default: true).
-    """
-    if not _enable_beat():
-        return
-    flag = os.getenv("ENABLE_BACKFILL_ON_START", "true").lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    if not flag:
-        return
-    hours = int(os.getenv("BACKFILL_HOURS", "24"))
-    for sym in _parse_assets_env():
-        try:
-            # Avoid import binding issues; send task by name
-            celery_app.send_task("backfill_prices", args=[sym, hours])
-        except Exception:
-            # Non-fatal in dev; if broker isn't ready, next run can repeat
-            pass
-
-
-_maybe_trigger_backfill_on_start()
+# No-op: we intentionally removed backfill triggers for portfolio setup
