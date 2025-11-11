@@ -65,7 +65,7 @@ Aktualizacja wdrożenia:
 git pull
 docker compose build --no-cache
 docker compose up -d
-docker compose run --rm api alembic upgrade head
+docker compose run --rm api alembic -c alembic.ini upgrade head
 ```
 
 Wyłączenie usług:
@@ -74,6 +74,18 @@ docker compose down
 ```
 
 Uwaga: zmienne środowiskowe są ustawione w `docker-compose.yml`. W razie potrzeby możesz utworzyć `.env` z nadpisaniami (np. `ENABLE_METRICS_ENDPOINT=false` dla prod).
+
+### Skróty: deploy.sh
+
+Repo zawiera prosty skrypt ułatwiający standardowe operacje:
+
+```bash
+./deploy.sh up       # bazy → migracje → start usług
+./deploy.sh update   # rebuild → restart → migracje
+./deploy.sh status   # status kontenerów
+./deploy.sh logs     # logi api/worker/beat
+./deploy.sh down     # zatrzymanie (bez kasowania wolumenów)
+```
 
 ## Praca deweloperska (lokalnie)
 
