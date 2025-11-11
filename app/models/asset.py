@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
 
@@ -17,4 +17,3 @@ class Asset(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # relationships defined in related models to avoid import cycles
-

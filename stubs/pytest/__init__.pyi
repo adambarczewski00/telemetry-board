@@ -1,7 +1,16 @@
-from typing import Optional
+from typing import Optional, overload, Any, ContextManager
 
 class MonkeyPatch:
     def setenv(
         self, name: str, value: str, *, prepend: Optional[str] = None
     ) -> None: ...
     def delenv(self, name: str, *, raising: bool = True) -> None: ...
+    @overload
+    def setattr(
+        self, target: object, name: str, value: Any, *, raising: bool = True
+    ) -> None: ...
+    @overload
+    def setattr(self, target: str, value: Any, *, raising: bool = True) -> None: ...
+
+# Common helper used in tests
+def raises(*args: Any, **kwargs: Any) -> ContextManager[Any]: ...

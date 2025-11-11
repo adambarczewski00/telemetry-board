@@ -22,7 +22,9 @@ def _setup_db(monkeypatch: MonkeyPatch, tmp_path: Path) -> Session:
     return session
 
 
-def test_alert_metrics_increment_on_trigger(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_alert_metrics_increment_on_trigger(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     session = _setup_db(monkeypatch, tmp_path)
     from sqlalchemy import select
     from app.models import PriceHistory, Asset
@@ -32,7 +34,9 @@ def test_alert_metrics_increment_on_trigger(monkeypatch: MonkeyPatch, tmp_path: 
     now = datetime.now(timezone.utc)
     session.add_all(
         [
-            PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0),
+            PriceHistory(
+                asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0
+            ),
             PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=5), price=106.0),
         ]
     )
@@ -44,4 +48,4 @@ def test_alert_metrics_increment_on_trigger(monkeypatch: MonkeyPatch, tmp_path: 
     metrics_text = generate_latest().decode()
     # Counter presence check – value may vary across test runs due to global registry
     assert 'alerts_total{symbol="BTC"}' in metrics_text
-    assert 'alert_compute_seconds' in metrics_text
+    assert "alert_compute_seconds" in metrics_text

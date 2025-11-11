@@ -20,4 +20,3 @@ def test_builds_schedule_from_env(monkeypatch: MonkeyPatch, tmp_path: Path) -> N
     assert "fetch_ETH" in schedule
     assert schedule["fetch_BTC"]["task"] == "fetch_price"
     assert schedule["fetch_BTC"]["args"] == ("BTC",)
-

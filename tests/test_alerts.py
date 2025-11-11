@@ -53,9 +53,24 @@ def test_get_alerts_limit_and_order(monkeypatch: MonkeyPatch, tmp_path: Path) ->
         now = datetime.now(timezone.utc)
         session.add_all(
             [
-                Alert(asset_id=asset.id, triggered_at=now - timedelta(minutes=10), window_minutes=60, change_pct=3.0),
-                Alert(asset_id=asset.id, triggered_at=now - timedelta(minutes=5), window_minutes=60, change_pct=4.0),
-                Alert(asset_id=asset.id, triggered_at=now - timedelta(minutes=1), window_minutes=60, change_pct=5.0),
+                Alert(
+                    asset_id=asset.id,
+                    triggered_at=now - timedelta(minutes=10),
+                    window_minutes=60,
+                    change_pct=3.0,
+                ),
+                Alert(
+                    asset_id=asset.id,
+                    triggered_at=now - timedelta(minutes=5),
+                    window_minutes=60,
+                    change_pct=4.0,
+                ),
+                Alert(
+                    asset_id=asset.id,
+                    triggered_at=now - timedelta(minutes=1),
+                    window_minutes=60,
+                    change_pct=5.0,
+                ),
             ]
         )
         session.commit()

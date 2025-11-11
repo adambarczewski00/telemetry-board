@@ -25,11 +25,18 @@ def _settings() -> tuple[int, float]:
 
 
 def _session() -> Session:
-    return sessionmaker(bind=get_engine(), autoflush=False, autocommit=False, future=True)()
+    return sessionmaker(
+        bind=get_engine(), autoflush=False, autocommit=False, future=True
+    )()
 
 
 @celery_app.task(bind=True, name="compute_alerts")
-def compute_alerts(self, symbol: str, window_minutes: int | None = None, threshold_pct: float | None = None) -> int:
+def compute_alerts(
+    self: object,
+    symbol: str,
+    window_minutes: int | None = None,
+    threshold_pct: float | None = None,
+) -> int:
     symbol_u = symbol.upper()
     wm, tp = _settings()
     window_m = window_minutes if window_minutes is not None else wm
@@ -38,7 +45,9 @@ def compute_alerts(self, symbol: str, window_minutes: int | None = None, thresho
     with ALERT_COMPUTE_SECONDS.labels(symbol=symbol_u).time():
         db = _session()
         try:
-            asset = db.execute(select(Asset).where(Asset.symbol == symbol_u)).scalar_one_or_none()
+            asset = db.execute(
+                select(Asset).where(Asset.symbol == symbol_u)
+            ).scalar_one_or_none()
             if asset is None:
                 return 0
 
@@ -63,7 +72,9 @@ def compute_alerts(self, symbol: str, window_minutes: int | None = None, thresho
             if float(first.price) == 0.0:
                 return 0
 
-            change_pct = (float(last.price) - float(first.price)) / float(first.price) * 100.0
+            change_pct = (
+                (float(last.price) - float(first.price)) / float(first.price) * 100.0
+            )
             if abs(change_pct) >= threshold:
                 alert = Alert(
                     asset_id=asset.id,
@@ -78,4 +89,3 @@ def compute_alerts(self, symbol: str, window_minutes: int | None = None, thresho
             return 0
         finally:
             db.close()
-

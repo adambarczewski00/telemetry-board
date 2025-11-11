@@ -46,4 +46,3 @@ def test_prices_after_worker_fetch(monkeypatch: MonkeyPatch, tmp_path: Path) -> 
     data = resp.json()
     assert isinstance(data, list) and len(data) == 1
     assert abs(float(data[0]["price"]) - 100.0) < 1e-6
-

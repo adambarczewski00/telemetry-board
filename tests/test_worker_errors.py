@@ -14,7 +14,9 @@ def _prep_db(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     create_all()
 
 
-def test_fetch_price_unsupported_symbol_records_failure(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_fetch_price_unsupported_symbol_records_failure(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     _prep_db(monkeypatch, tmp_path)
     from worker.tasks.prices import fetch_price
 
@@ -26,7 +28,9 @@ def test_fetch_price_unsupported_symbol_records_failure(monkeypatch: MonkeyPatch
     assert 'fetch_price_failure_total{symbol="DOGE"}' in metrics_text
 
 
-def test_fetch_price_network_error_records_failure(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_fetch_price_network_error_records_failure(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     _prep_db(monkeypatch, tmp_path)
 
     from worker.tasks.prices import fetch_price
@@ -41,4 +45,3 @@ def test_fetch_price_network_error_records_failure(monkeypatch: MonkeyPatch, tmp
 
     metrics_text = generate_latest().decode()
     assert 'fetch_price_failure_total{symbol="ETH"}' in metrics_text
-

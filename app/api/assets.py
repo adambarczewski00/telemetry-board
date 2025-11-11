@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -27,8 +27,7 @@ class AssetOut(BaseModel):
     name: str | None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 router = APIRouter(prefix="/assets", tags=["assets"])
@@ -49,7 +48,8 @@ def create_asset(payload: AssetCreate, db: Session = Depends(get_session)) -> As
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="asset already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="asset already exists"
+        )
     db.refresh(asset)
     return AssetOut.model_validate(asset)
-
