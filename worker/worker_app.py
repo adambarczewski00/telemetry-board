@@ -5,7 +5,7 @@ from typing import Final
 
 from celery import Celery
 from prometheus_client import start_http_server
-from worker.schedule import build_beat_schedule
+from worker.schedule import build_beat_schedule, LazyBeatSchedule
 
 # Default local-stack broker URL; production is provided via env.
 DEFAULT_BROKER: Final[str] = "redis://redis:6379/0"
@@ -60,12 +60,14 @@ def _parse_assets_env() -> list[str]:
     return [x.strip().upper() for x in raw.split(",") if x.strip()]
 
 
-def _configure_beat() -> None:
+def _build_schedule_from_env() -> dict[str, dict]:
     if not _enable_beat():
-        return
+        return {}
     interval = int(os.getenv("FETCH_INTERVAL_SECONDS", "300"))
     assets = _parse_assets_env()
-    celery_app.conf.beat_schedule = build_beat_schedule(assets, interval)
+    return build_beat_schedule(assets, interval)
 
 
-_configure_beat()
+# Use a lazy schedule so tests that set env after an earlier import
+# still see the correct configuration when accessing the schedule.
+celery_app.conf.beat_schedule = LazyBeatSchedule(_build_schedule_from_env)
