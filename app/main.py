@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import os
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .metrics import metrics_middleware, router as metrics_router
 from .api.assets import router as assets_router
 from .api.prices import router as prices_router
 from .api.alerts import router as alerts_router
+from .ui import router as ui_router
 
 
 def _flag(env_var: str, default: bool = False) -> bool:
@@ -32,6 +36,10 @@ def create_app() -> FastAPI:
     application.include_router(assets_router)
     application.include_router(prices_router)
     application.include_router(alerts_router)
+    # UI: static + server-rendered templates
+    static_dir = Path(__file__).parent / "static"
+    application.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    application.include_router(ui_router)
 
     @application.get("/health")
     def _health() -> dict[str, str]:

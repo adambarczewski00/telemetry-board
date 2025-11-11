@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Telemetry Board</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.5.10/css/pico.min.css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <style>
+      :root { --spacing: 0.9rem; }
+      main.container { padding-top: 1rem; }
+      table { font-variant-numeric: tabular-nums; }
+      canvas { background: #111; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <nav class="container">
+      <ul>
+        <li><strong>Telemetry Board</strong></li>
+      </ul>
+      <ul>
+        <li><a href="/ui">Overview</a></li>
+        <li><a href="/ui/alerts">Alerts</a></li>
+        <li><a href="/metrics" target="_blank">Metrics</a></li>
+      </ul>
+    </nav>
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+  </body>
+  </html>

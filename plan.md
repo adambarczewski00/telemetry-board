@@ -344,11 +344,81 @@ curl http://localhost:8000/health      # => ok
   - feature/tests-worker-and-api → PR draft (testy błędów workera i integracja API)
   - feature/f3-alerts-compute → PR draft (compute_alerts + metryki + testy, rozszerzony Beat)
 
-- Najbliższe kroki (F4):
-  - Rozszerzyć README (uruchomienie pełne, endpoints, architektura, Prometheus, SLO, bezpieczeństwo).
-  - Dodać testy: metryki alertów (inkrement), ENV dla alertów (okno/próg), zero baseline, limit /alerts z istniejącymi danymi.
-  - (Opcjonalnie) logi JSON przy generacji alertów.
-  - Zrzuty ekranu do katalogu Screenshots/ i odnośniki w README.
-  - Po akceptacji PR: merge do main i tag v0.1.0, dodać badge CI.
+- Najbliższe kroki (F4 — UI, najprostszy stack):
+  - Stack: FastAPI Templates (Jinja2) + htmx (opcjonalnie) + Chart.js (CDN) + Pico.css (CDN). Bez Node/Vite i bez kompilacji.
+  - Routing UI: dodać `app/ui.py` (APIRouter) z trasami: `/ui` (overview), `/ui/assets/{symbol}` (asset detail), `/ui/alerts` (lista/dodawanie alertów).
+  - Szablony: `app/templates/{base.html,overview.html,asset.html,alerts.html}`; fragmenty pod htmx dla tabel/list.
+  - Statyczne pliki: katalog `app/static/` i montaż `StaticFiles` pod `/static`; biblioteki z CDN (Chart.js, Pico.css, htmx).
+  - Integracja: w `app/main.py` dodać montaż statyków oraz `include_router(ui_router)` pod prefiksem `/ui`.
+  - Interakcja: proste odpytywanie (`fetch`/htmx) co 10–15 s do `/prices?asset=...` i `/alerts?asset=...` + render wykresu w Chart.js.
+  - Akceptacja: strona `/ui` pokazuje listę aktywów z ostatnią ceną i 24h zmianą; `/ui/assets/BTC` renderuje wykres + ostatnie alerty; `/ui/alerts` pozwala dodać alert progu dla aktywa.
+  - (Opcjonalnie, F5) SSE/WebSocket do live‑update; na start polling wystarczy.
+  - Dokumentacja: krótka sekcja w README „UI” (jak wejść, co działa) + 1–2 screenshoty.
 
 — Koniec kontekstu: tu zakończono pracę; kontynuuj od listy „Najbliższe kroki (F4)”.
+Here’s a practical roadmap to move the app forward — especially a simple, useful UI.
+
+Product Roadmap
+
+Core features
+Alerts management: list/create/delete alerts; configurable thresholds per asset.
+Price history charts: 1h/24h/7d windows; min/max/avg.
+Asset catalog: add/remove assets; names/aliases; validation.
+Realtime
+Live price ticks and alerts via WebSocket or Server‑Sent Events.
+Background aggregation for faster charts (rolling buckets).
+Operability
+Auth (API key or basic OAuth proxy) for write endpoints.
+Rate limits for public endpoints; CORS for UI.
+Retention policy (cleanup old PriceHistory), configurable via env.
+UI MVP (served by the API)
+
+Pages
+Overview: table of assets with last price, 24h change, last alert badge.
+Asset Detail: line chart of price vs time, recent alerts list.
+Alerts: list and simple form to add threshold alert per asset.
+Settings: manage tracked assets, thresholds defaults.
+Tech (simplest, no build)
+Server‑rendered templates (Jinja2) + htmx for partial updates (optional).
+Chart.js via CDN for charts; Pico.css via CDN for styling.
+Served by FastAPI StaticFiles under `/static`. No Node, no bundler.
+Data
+GET /prices/?asset=BTC&window=24h → list of {ts, price}.
+GET /alerts/?asset=BTC&limit=50.
+POST /alerts/ → create per‑asset threshold.
+Optional: GET /assets/ for dropdowns.
+Realtime (phase 2)
+Start with polling every 10–15s. Optional: SSE `/sse` or WebSocket `/ws` later.
+API Enhancements
+
+Prices aggregation
+GET /prices/summary?asset=BTC&window=24h → {min,max,avg,first,last,points}.
+Add DB index on (asset_id, ts); optional downsampling job.
+Alerts CRUD
+POST /alerts/ body: {asset, window_minutes, threshold_pct, direction}.
+DELETE /alerts/{id}; GET /alerts?asset=....
+Config
+GET/PUT /config/alerts-defaults to adjust _settings() centrally.
+Validation/limits
+Query param validation, sane limit defaults; 400 on misuse.
+Security/Perf
+
+Auth
+Simple API token env (API_TOKEN) → FastAPI dependency for writes.
+Rate limiting
+slowapi (Redis) for POSTs; safe defaults for GETs.
+CORS
+Allow UI origin; configurable via ALLOWED_ORIGINS.
+Grafana Option (fastest “UI”)
+
+Add Grafana in compose; create dashboards for:
+Price charts per asset (pull from API/Prometheus exporters).
+Alerts count, worker timings, API latencies.
+This complements (doesn’t replace) a thin app UI.
+Proposed Implementation Plan (minimal stack)
+
+Add price summary endpoint and basic alerts CRUD (reuse existing GET, add POST/DELETE if needed).
+Add UI router + templates; serve static and wire CDN libraries.
+Implement Overview/Asset/Alerts pages with polling fetch/htmx and Chart.js render.
+Optional later: SSE/WebSocket push from Celery for live updates.
+Document UI usage; add a couple of UI smoke tests (200 responses) and update README.
