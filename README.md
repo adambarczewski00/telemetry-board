@@ -75,6 +75,16 @@ docker compose down
 
 Uwaga: zmienne środowiskowe są ustawione w `docker-compose.yml`. W razie potrzeby możesz utworzyć `.env` z nadpisaniami (np. `ENABLE_METRICS_ENDPOINT=false` dla prod).
 
+## Prosty CD (GitHub Actions + self-hosted runner)
+
+Jeśli chcesz automatycznie wdrażać zmiany z gałęzi `main` na serwer:
+
+1) Na serwerze z Dockerem zainstaluj self-hosted runnera GitHub i nadaj mu label `prod`.
+2) Upewnij się, że runner ma dostęp do Dockera (grupa `docker`).
+3) W repo jest workflow `.github/workflows/cd.yml`, który na `push` do `main` wykona `./deploy.sh update` na runnerze.
+
+Ręczne wywołanie (manual trigger) jest dostępne przez `workflow_dispatch`.
+
 ### Skróty: deploy.sh
 
 Repo zawiera prosty skrypt ułatwiający standardowe operacje:
