@@ -36,3 +36,10 @@ if _enable_metrics():
 def ping() -> str:
     """Basic connectivity check used by tests and smoke probes."""
     return "pong"
+
+# Ensure tasks package is imported so Celery registers them
+try:
+    import worker.tasks.prices  # noqa: F401
+except Exception:
+    # Keep the worker importable even if optional deps are missing in some envs
+    pass
