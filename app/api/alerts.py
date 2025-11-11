@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,8 +18,7 @@ class AlertOut(BaseModel):
     window_minutes: int
     change_pct: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -32,16 +31,20 @@ def get_alerts(
     db: Session = Depends(get_session),
 ) -> List[AlertOut]:
     symbol = asset.upper()
-    asset_row = db.execute(select(Asset).where(Asset.symbol == symbol)).scalar_one_or_none()
+    asset_row = db.execute(
+        select(Asset).where(Asset.symbol == symbol)
+    ).scalar_one_or_none()
     if asset_row is None:
         raise HTTPException(status_code=404, detail="asset not found")
 
     rows = (
         db.execute(
-            select(Alert).where(Alert.asset_id == asset_row.id).order_by(Alert.triggered_at.desc()).limit(limit)
+            select(Alert)
+            .where(Alert.asset_id == asset_row.id)
+            .order_by(Alert.triggered_at.desc())
+            .limit(limit)
         )
         .scalars()
         .all()
     )
     return [AlertOut.model_validate(r) for r in rows]
-

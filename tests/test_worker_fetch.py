@@ -54,6 +54,9 @@ def test_fetch_price_inserts_price(monkeypatch: MonkeyPatch, tmp_path: Path) -> 
     assert result == 12345.67
 
     # verify DB insert
-    count = db.execute(select(PriceHistory).where(PriceHistory.asset_id == asset.id)).scalars().all()
+    count = (
+        db.execute(select(PriceHistory).where(PriceHistory.asset_id == asset.id))
+        .scalars()
+        .all()
+    )
     assert len(count) == 1
-

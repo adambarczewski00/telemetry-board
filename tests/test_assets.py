@@ -51,4 +51,3 @@ def test_create_asset_validation(monkeypatch: MonkeyPatch, tmp_path: Path) -> No
     # too short symbol
     resp = client.post("/assets/", json={"symbol": "X"})
     assert resp.status_code == 422
-

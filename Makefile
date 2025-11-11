@@ -13,7 +13,7 @@ typecheck:
 	mypy app worker tests
 
 test:
-	pytest -q
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ANYIO_BACKEND=asyncio pytest -q
 
 build:
 	docker compose build --no-cache

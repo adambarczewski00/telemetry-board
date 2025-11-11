@@ -327,3 +327,28 @@ make compose-up
 curl http://localhost:8000/health      # => ok
 # otwórz http://localhost:9090/targets  # powinno być UP dla api i worker
 ```
+
+---
+
+## Stan prac i kontekst (do kontynuacji)
+
+- Podsumowanie statusu:
+  - F0 ✔️, F1 ✔️, F2 ✔️ (wraz z Beat), F3 ✔️ (bez opcjonalnych logów JSON).
+  - Testy pokrywają: health/metrics, assets, prices/alerts (MVP), worker fetch (+ błędy), beat schedule, compute_alerts oraz integrację API po fetchu.
+
+- Otwarte gałęzie/PR (do review/merge):
+  - feature/f1-assets-endpoints → PR draft (assets GET/POST + testy)
+  - feature/f1-prices-alerts → PR draft (prices/alerts MVP + testy)
+  - feature/f2-worker-fetch → PR draft (fetch_price + metryki + test)
+  - feature/f2-beat-schedule → PR draft (Beat + harmonogram + test + compose)
+  - feature/tests-worker-and-api → PR draft (testy błędów workera i integracja API)
+  - feature/f3-alerts-compute → PR draft (compute_alerts + metryki + testy, rozszerzony Beat)
+
+- Najbliższe kroki (F4):
+  - Rozszerzyć README (uruchomienie pełne, endpoints, architektura, Prometheus, SLO, bezpieczeństwo).
+  - Dodać testy: metryki alertów (inkrement), ENV dla alertów (okno/próg), zero baseline, limit /alerts z istniejącymi danymi.
+  - (Opcjonalnie) logi JSON przy generacji alertów.
+  - Zrzuty ekranu do katalogu Screenshots/ i odnośniki w README.
+  - Po akceptacji PR: merge do main i tag v0.1.0, dodać badge CI.
+
+— Koniec kontekstu: tu zakończono pracę; kontynuuj od listy „Najbliższe kroki (F4)”.

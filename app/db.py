@@ -37,7 +37,9 @@ def get_session() -> Generator[Session, None, None]:
 
     Closes the session after use to avoid connection leaks.
     """
-    SessionLocal = sessionmaker(bind=get_engine(), autoflush=False, autocommit=False, future=True)
+    SessionLocal = sessionmaker(
+        bind=get_engine(), autoflush=False, autocommit=False, future=True
+    )
     db = SessionLocal()
     try:
         yield db

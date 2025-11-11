@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Mapping
 
 import requests
 from prometheus_client import Counter, Histogram
@@ -12,9 +12,13 @@ from app.models import Asset, PriceHistory
 from worker.worker_app import celery_app
 
 
-FETCH_SUCCESS = Counter("fetch_price_success_total", "Successful price fetches", ["symbol"])
+FETCH_SUCCESS = Counter(
+    "fetch_price_success_total", "Successful price fetches", ["symbol"]
+)
 FETCH_FAILURE = Counter("fetch_price_failure_total", "Failed price fetches", ["symbol"])
-FETCH_DURATION = Histogram("fetch_price_duration_seconds", "Duration of price fetches", ["symbol"])
+FETCH_DURATION = Histogram(
+    "fetch_price_duration_seconds", "Duration of price fetches", ["symbol"]
+)
 
 
 def _coingecko_id_for_symbol(symbol: str) -> str | None:
@@ -29,22 +33,22 @@ def _get_price_usd(symbol: str) -> float:
     cg_id = _coingecko_id_for_symbol(symbol)
     if cg_id is None:
         raise ValueError("unsupported asset symbol")
-    url = (
-        f"https://api.coingecko.com/api/v3/simple/price?ids={cg_id}&vs_currencies=usd"
-    )
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={cg_id}&vs_currencies=usd"
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
-    data: dict[str, Any] = resp.json()
+    data: Mapping[str, Any] = resp.json()
     price = float(data[cg_id]["usd"])  # type: ignore[index]
     return price
 
 
 def _session() -> Session:
-    return sessionmaker(bind=get_engine(), autoflush=False, autocommit=False, future=True)()
+    return sessionmaker(
+        bind=get_engine(), autoflush=False, autocommit=False, future=True
+    )()
 
 
 @celery_app.task(bind=True, name="fetch_price")
-def fetch_price(self, symbol: str) -> float:
+def fetch_price(self: object, symbol: str) -> float:
     symbol_u = symbol.upper()
     with FETCH_DURATION.labels(symbol=symbol_u).time():
         try:
@@ -56,7 +60,9 @@ def fetch_price(self, symbol: str) -> float:
     # Persist to DB
     db = _session()
     try:
-        asset = db.execute(select(Asset).where(Asset.symbol == symbol_u)).scalar_one_or_none()
+        asset = db.execute(
+            select(Asset).where(Asset.symbol == symbol_u)
+        ).scalar_one_or_none()
         if asset is None:
             # auto-create minimal asset record to avoid dropped samples in demo
             asset = Asset(symbol=symbol_u, name=None)

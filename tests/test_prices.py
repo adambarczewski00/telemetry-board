@@ -40,4 +40,3 @@ def test_get_prices_window_param(monkeypatch: MonkeyPatch, tmp_path: Path) -> No
     resp = client.get("/prices/", params={"asset": "ETH", "window": "24h"})
     assert resp.status_code == 200
     assert resp.json() == []
-

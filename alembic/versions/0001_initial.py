@@ -24,24 +24,34 @@ def upgrade() -> None:
     op.create_table(
         "price_history",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("asset_id", sa.Integer(), sa.ForeignKey("assets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "asset_id",
+            sa.Integer(),
+            sa.ForeignKey("assets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("ts", sa.DateTime(), nullable=False),
         sa.Column("price", sa.Numeric(18, 8), nullable=False),
         sa.UniqueConstraint("asset_id", "ts", name="uq_price_history_asset_ts"),
     )
-    op.create_index("ix_price_history_asset_id", "price_history", ["asset_id"]) 
-    op.create_index("ix_price_history_ts", "price_history", ["ts"]) 
+    op.create_index("ix_price_history_asset_id", "price_history", ["asset_id"])
+    op.create_index("ix_price_history_ts", "price_history", ["ts"])
 
     op.create_table(
         "alerts",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("asset_id", sa.Integer(), sa.ForeignKey("assets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "asset_id",
+            sa.Integer(),
+            sa.ForeignKey("assets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("triggered_at", sa.DateTime(), nullable=False),
         sa.Column("window_minutes", sa.Integer(), nullable=False),
         sa.Column("change_pct", sa.Numeric(9, 4), nullable=False),
     )
-    op.create_index("ix_alerts_asset_id", "alerts", ["asset_id"]) 
-    op.create_index("ix_alerts_triggered_at", "alerts", ["triggered_at"]) 
+    op.create_index("ix_alerts_asset_id", "alerts", ["asset_id"])
+    op.create_index("ix_alerts_triggered_at", "alerts", ["triggered_at"])
 
 
 def downgrade() -> None:
@@ -55,4 +65,3 @@ def downgrade() -> None:
 
     op.drop_index("ix_assets_symbol", table_name="assets")
     op.drop_table("assets")
-

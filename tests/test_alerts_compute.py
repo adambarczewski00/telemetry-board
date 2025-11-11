@@ -22,7 +22,9 @@ def _setup_db(monkeypatch: MonkeyPatch, tmp_path: Path) -> Session:
     return session
 
 
-def test_compute_alerts_triggers_when_threshold_met(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_compute_alerts_triggers_when_threshold_met(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     session = _setup_db(monkeypatch, tmp_path)
     from app.models import PriceHistory, Alert, Asset
     from worker.tasks.alerts import compute_alerts
@@ -32,7 +34,9 @@ def test_compute_alerts_triggers_when_threshold_met(monkeypatch: MonkeyPatch, tm
     # +6% over the window
     session.add_all(
         [
-            PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0),
+            PriceHistory(
+                asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0
+            ),
             PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=5), price=106.0),
         ]
     )
@@ -42,13 +46,17 @@ def test_compute_alerts_triggers_when_threshold_met(monkeypatch: MonkeyPatch, tm
     created = compute_alerts.run("BTC")
     assert created == 1
 
-    alerts = session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    alerts = (
+        session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    )
     assert len(alerts) == 1
     assert alerts[0].window_minutes == 60
     assert float(alerts[0].change_pct) > 5.0
 
 
-def test_compute_alerts_no_trigger_below_threshold(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_compute_alerts_no_trigger_below_threshold(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     session = _setup_db(monkeypatch, tmp_path)
     from app.models import PriceHistory, Alert, Asset
     from worker.tasks.alerts import compute_alerts
@@ -58,7 +66,9 @@ def test_compute_alerts_no_trigger_below_threshold(monkeypatch: MonkeyPatch, tmp
     # +4% only
     session.add_all(
         [
-            PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0),
+            PriceHistory(
+                asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0
+            ),
             PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=5), price=104.0),
         ]
     )
@@ -67,11 +77,15 @@ def test_compute_alerts_no_trigger_below_threshold(monkeypatch: MonkeyPatch, tmp
     created = compute_alerts.run("BTC")
     assert created == 0
 
-    alerts = session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    alerts = (
+        session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    )
     assert len(alerts) == 0
 
 
-def test_compute_alerts_respects_env_threshold(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_compute_alerts_respects_env_threshold(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     session = _setup_db(monkeypatch, tmp_path)
     from app.models import PriceHistory, Alert, Asset
     from worker.tasks.alerts import compute_alerts
@@ -83,7 +97,9 @@ def test_compute_alerts_respects_env_threshold(monkeypatch: MonkeyPatch, tmp_pat
     now = datetime.now(timezone.utc)
     session.add_all(
         [
-            PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0),
+            PriceHistory(
+                asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0
+            ),
             PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=5), price=104.0),
         ]
     )
@@ -92,11 +108,15 @@ def test_compute_alerts_respects_env_threshold(monkeypatch: MonkeyPatch, tmp_pat
     created = compute_alerts.run("BTC")
     assert created == 1
 
-    alerts = session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    alerts = (
+        session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    )
     assert len(alerts) == 1
 
 
-def test_compute_alerts_respects_env_window(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_compute_alerts_respects_env_window(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     session = _setup_db(monkeypatch, tmp_path)
     from app.models import PriceHistory, Alert, Asset
     from worker.tasks.alerts import compute_alerts
@@ -108,7 +128,9 @@ def test_compute_alerts_respects_env_window(monkeypatch: MonkeyPatch, tmp_path: 
     now = datetime.now(timezone.utc)
     session.add_all(
         [
-            PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0),
+            PriceHistory(
+                asset_id=asset.id, ts=now - timedelta(minutes=50), price=100.0
+            ),
             PriceHistory(asset_id=asset.id, ts=now - timedelta(minutes=5), price=106.0),
         ]
     )
@@ -117,5 +139,7 @@ def test_compute_alerts_respects_env_window(monkeypatch: MonkeyPatch, tmp_path: 
     created = compute_alerts.run("BTC")
     assert created == 0
 
-    alerts = session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    alerts = (
+        session.execute(select(Alert).where(Alert.asset_id == asset.id)).scalars().all()
+    )
     assert len(alerts) == 0
