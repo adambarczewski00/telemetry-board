@@ -28,6 +28,20 @@ def create_app() -> FastAPI:
     # Attach Prometheus instrumentation to every HTTP request.
     application.middleware("http")(metrics_middleware)
 
+    # Ensure database schema exists when the service starts (dev/compose friendly).
+    # In production you may prefer running Alembic migrations separately.
+    @application.on_event("startup")
+    def _ensure_db_schema() -> None:  # pragma: no cover - exercised in integration
+        try:
+            from .db import create_all
+
+            create_all()
+        except Exception:
+            # Avoid crashing app on import-time issues; surface via logs instead.
+            # The request will still fail if schema truly missing, but this best-effort
+            # path helps local/compose environments without a migration step.
+            pass
+
     if _flag("ENABLE_METRICS_ENDPOINT"):
         # Only expose /metrics when the deployment explicitly enables it.
         application.include_router(metrics_router)

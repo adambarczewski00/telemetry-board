@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 import time
 
@@ -57,6 +57,32 @@ def _get_price_usd(symbol: str) -> float:
     raise last_exc
 
 
+def _get_market_chart_usd(symbol: str, hours: int = 24) -> list[tuple[datetime, float]]:
+    """Fetch historical price points for the given symbol.
+
+    Uses CoinGecko market_chart endpoint. Returns list of (ts, price) tuples
+    in UTC, filtered to the last `hours` hours.
+    """
+    cg_id = _coingecko_id_for_symbol(symbol)
+    if cg_id is None:
+        raise ValueError("unsupported asset symbol")
+    # CoinGecko accepts fractional days; use 1 for <=24h, ceil for more.
+    days = max(1.0, hours / 24.0)
+    url = (
+        f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=usd&days={days}&interval=minute"
+    )
+    resp = requests.get(url, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+    series = []
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    for ts_ms, price in data.get("prices", []):  # type: ignore[assignment]
+        ts = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+        if ts >= cutoff:
+            series.append((ts, float(price)))
+    return series
+
+
 def _session() -> Session:
     return sessionmaker(
         bind=get_engine(), autoflush=False, autocommit=False, future=True
@@ -93,3 +119,45 @@ def fetch_price(self: object, symbol: str) -> float:
 
     FETCH_SUCCESS.labels(symbol=symbol_u).inc()
     return price
+
+
+@celery_app.task(bind=True, name="backfill_prices")
+def backfill_prices(self: object, symbol: str, hours: int = 24) -> int:
+    """Backfill recent price history for an asset.
+
+    Returns the number of points inserted. Safe to run multiple times; duplicates
+    are ignored thanks to the unique constraint on (asset_id, ts).
+    """
+    symbol_u = symbol.upper()
+    # Ensure tables exist in dev/compose scenarios
+    try:
+        from app.db import create_all
+
+        create_all()
+    except Exception:
+        pass
+
+    points = _get_market_chart_usd(symbol_u, hours=hours)
+
+    db = _session()
+    inserted = 0
+    try:
+        asset = db.execute(select(Asset).where(Asset.symbol == symbol_u)).scalar_one_or_none()
+        if asset is None:
+            asset = Asset(symbol=symbol_u, name=None)
+            db.add(asset)
+            db.commit()
+            db.refresh(asset)
+
+        for ts, price in points:
+            ph = PriceHistory(asset_id=asset.id, ts=ts, price=price)
+            db.add(ph)
+            try:
+                db.commit()
+                inserted += 1
+            except Exception:
+                # Likely unique constraint violation; drop and continue
+                db.rollback()
+        return inserted
+    finally:
+        db.close()

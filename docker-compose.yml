@@ -26,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    image: telemetry-board-worker
     environment:
       - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
       - REDIS_URL=redis://redis:6379/0
@@ -45,16 +46,16 @@ services:
 
   beat:
     # Celery Beat scheduler to trigger periodic fetch tasks.
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
+    image: telemetry-board-worker
     environment:
       - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
       - REDIS_URL=redis://redis:6379/0
       - ENABLE_WORKER_METRICS=false
       - ENABLE_BEAT=true
       - ASSETS=BTC,ETH
-      - FETCH_INTERVAL_SECONDS=300
+      - FETCH_INTERVAL_SECONDS=60
+      - ENABLE_BACKFILL_ON_START=true
+      - BACKFILL_HOURS=24
     depends_on:
       - redis
       - postgres

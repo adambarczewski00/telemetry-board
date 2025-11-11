@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Asset {{ symbol }} · Telemetry Board{% endblock %}
 {% block content %}
 <hgroup>
   <h2>Asset: {{ symbol }}</h2>
@@ -9,6 +10,9 @@
 <article>
   <header>
     <strong>Price history (24h)</strong>
+    <div style="float:right">
+      <small>Last: <span id="last-price" class="num">—</span> · 24h: <span id="last-change" class="num">—</span></small>
+    </div>
   </header>
   <canvas id="chart" height="100"></canvas>
   <p id="chart-empty" style="display:none"><em>No price data yet for this asset.</em></p>
@@ -20,7 +24,7 @@
 <h3>Recent Alerts</h3>
 <table>
   <thead>
-    <tr><th>Time</th><th>Window</th><th>Change %</th></tr>
+    <tr><th>Time</th><th class="num">Window</th><th class="num">Change %</th></tr>
   </thead>
   <tbody id="alerts-body"></tbody>
   </table>
@@ -28,6 +32,7 @@
 
 {% block scripts %}
 <script>
+  document.addEventListener('DOMContentLoaded', () => {
   const SYMBOL = {{ symbol|tojson }};
 
   async function fetchJSON(url) {
@@ -56,11 +61,23 @@
       c.data.labels = [];
       c.data.datasets[0].data = [];
       c.update();
+      // Retry soon after initial load so backfill can appear quickly
+      setTimeout(loadChart, 2000);
       return;
     }
     empty.style.display = 'none';
     const labels = prices.map(p => new Date(p.ts).toLocaleTimeString());
     const data = prices.map(p => Number(p.price));
+    // Update summary
+    const first = data[0];
+    const last = data[data.length - 1];
+    const change = ((last - first) / first) * 100.0;
+    const lastPrice = document.getElementById('last-price');
+    const lastChange = document.getElementById('last-change');
+    lastPrice.textContent = Number(last).toFixed(2);
+    lastChange.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+    lastChange.classList.toggle('delta-pos', change >= 0);
+    lastChange.classList.toggle('delta-neg', change < 0);
     const ctx = document.getElementById('chart').getContext('2d');
     const c = ensureChart(ctx);
     c.data.labels = labels;
@@ -81,7 +98,9 @@
     for (const a of alerts) {
       const tr = document.createElement('tr');
       const ts = new Date(a.triggered_at).toLocaleString();
-      tr.innerHTML = `<td>${ts}</td><td>${a.window_minutes}m</td><td>${Number(a.change_pct).toFixed(2)}%</td>`;
+      const pct = Number(a.change_pct);
+      const signClass = pct >= 0 ? 'delta-pos' : 'delta-neg';
+      tr.innerHTML = `<td>${ts}</td><td class=\"num\">${a.window_minutes}m</td><td class=\"num ${signClass}\">${pct.toFixed(2)}%</td>`;
       tbody.appendChild(tr);
     }
   }
@@ -93,5 +112,6 @@
 
   refresh();
   setInterval(refresh, 15000);
+  });
 </script>
 {% endblock %}

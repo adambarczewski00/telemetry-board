@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Overview · Telemetry Board{% endblock %}
 {% block content %}
 <hgroup>
   <h2>Assets Overview</h2>
@@ -10,8 +11,8 @@
     <tr>
       <th>Symbol</th>
       <th>Name</th>
-      <th>Last Price</th>
-      <th>24h Change</th>
+      <th class="num">Last Price</th>
+      <th class="num">24h Change</th>
       <th></th>
     </tr>
   </thead>
@@ -21,6 +22,7 @@
 
 {% block scripts %}
 <script>
+  document.addEventListener('DOMContentLoaded', () => {
   async function fetchJSON(url) {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -44,23 +46,29 @@
     }
     for (const a of assets) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${a.symbol}</td><td>${a.name ?? ''}</td><td>—</td><td>—</td><td><a href="/ui/assets/${a.symbol}">Open</a></td>`;
+      tr.innerHTML = `<td>${a.symbol}</td><td>${a.name ?? ''}</td><td class="num price">—</td><td class="num change">—</td><td><a href="/ui/assets/${a.symbol}">Open</a></td>`;
       tbody.appendChild(tr);
       try {
         const prices = await fetchJSON(`/prices?asset=${encodeURIComponent(a.symbol)}&window=24h`);
         if (prices.length > 0) {
           const last = prices[prices.length - 1].price;
           const first = prices[0].price;
-          tr.children[2].textContent = Number(last).toFixed(2);
+          tr.querySelector('td.price').textContent = Number(last).toFixed(2);
           const change = pct(last, first);
-          tr.children[3].textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+      const changeCell = tr.querySelector('td.change');
+      const sign = change >= 0 ? '+' : '';
+      changeCell.textContent = `${sign}${change.toFixed(2)}%`;
+          changeCell.classList.toggle('delta-pos', change >= 0);
+          changeCell.classList.toggle('delta-neg', change < 0);
         } else {
-          tr.children[2].textContent = '—';
-          tr.children[3].textContent = '—';
+          tr.querySelector('td.price').textContent = '—';
+          tr.querySelector('td.change').textContent = '—';
         }
       } catch (e) {
-        tr.children[2].textContent = 'n/a';
-        tr.children[3].textContent = 'n/a';
+        tr.querySelector('td.price').textContent = 'n/a';
+        const changeCell = tr.querySelector('td.change');
+        changeCell.textContent = 'n/a';
+        changeCell.classList.remove('delta-pos', 'delta-neg');
       }
     }
   }
@@ -68,5 +76,6 @@
   load();
   // simple polling
   setInterval(load, 15000);
+  });
 </script>
 {% endblock %}

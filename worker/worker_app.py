@@ -87,3 +87,32 @@ def _build_schedule_from_env() -> dict[str, dict]:
 # Use a lazy schedule so tests that set env after an earlier import
 # still see the correct configuration when accessing the schedule.
 celery_app.conf.beat_schedule = LazyBeatSchedule(_build_schedule_from_env)
+
+
+def _maybe_trigger_backfill_on_start() -> None:
+    """Optionally enqueue backfill tasks when Beat starts.
+
+    We do this only in the Beat process (ENABLE_BEAT=true) to avoid duplicates.
+    Controlled via env ENABLE_BACKFILL_ON_START (default: true).
+    """
+    if not _enable_beat():
+        return
+    flag = os.getenv("ENABLE_BACKFILL_ON_START", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not flag:
+        return
+    hours = int(os.getenv("BACKFILL_HOURS", "24"))
+    for sym in _parse_assets_env():
+        try:
+            # Avoid import binding issues; send task by name
+            celery_app.send_task("backfill_prices", args=[sym, hours])
+        except Exception:
+            # Non-fatal in dev; if broker isn't ready, next run can repeat
+            pass
+
+
+_maybe_trigger_backfill_on_start()

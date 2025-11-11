@@ -472,3 +472,56 @@ Add UI router + templates; serve static and wire CDN libraries.
 Implement Overview/Asset/Alerts pages with polling fetch/htmx and Chart.js render.
 Optional later: SSE/WebSocket push from Celery for live updates.
 Document UI usage; add a couple of UI smoke tests (200 responses) and update README.
+
+## F5 — UI (minimal, bez SPA) — plan szczegółowy
+
+Cele:
+- Bez build stepu, zero SPA. Tylko Jinja2 + Pico.css + Chart.js (CDN) + prosty JS (fetch + setInterval).
+- Widoki: Overview (lista aktywów), Asset detail (wykres + alerty), Alerts (lista per asset).
+
+Widoki i funkcjonalności:
+- Overview (`app/templates/overview.html`)
+  - Lista aktywów z `/assets` (symbol, name).
+  - Ostatnia cena i zmiana 24h wyliczana klientem z `/prices?asset=SYM&window=24h`.
+  - Link „Open” do `/ui/assets/{symbol}`.
+  - Polling co 15 s; stany: „No assets yet”, „n/a” przy błędzie.
+- Asset detail (`app/templates/asset.html`)
+  - Wykres (Chart.js) z `/prices?asset=SYM&window=24h` (labels: czas, data: price).
+  - Tabela alertów z `/alerts?asset=SYM&limit=20` (Time, Window, Change %).
+  - Polling co 15 s; stan pusty gdy brak cen/alertów.
+- Alerts (`app/templates/alerts.html`)
+  - Select z listą aktywów `/assets`, tabela alertów `/alerts?asset=...&limit=50`.
+  - Auto‑odświeżanie co 15 s i przy zmianie selecta; stan pusty gdy brak danych.
+
+Zależności (bez buildu):
+- CSS: Pico.css z CDN (już dołączone w `app/templates/base.html`).
+- JS: Chart.js z CDN (już dołączone), opcjonalnie htmx (już dołączone, użycie minimalne/na później).
+
+Integracje API (bez zmian backendu):
+- `/assets`, `/prices?asset=SYM&window=24h`, `/alerts?asset=SYM&limit=N`.
+- Opcjonalnie w przyszłości: `/prices/summary` dla skrótów (nie wymagane teraz).
+
+UX i dostępność:
+- Stany ładowania: placeholdery/puste komunikaty (zrobione w widokach).
+- Błędy: fallback „n/a” lub puste wiersze; brak alertów → komunikat.
+- Format liczb: `toFixed(2)`; zmiany 24h z prefiksem `+`/`-`.
+
+Akceptacja (UI):
+- Overview wyświetla listę aktywów, ostatnią cenę i 24h zmianę po dodaniu min. jednego aktywa.
+- Asset detail renderuje wykres (gdy są ceny) i listę alertów.
+- Alerts pokazuje alerty dla wybranego aktywa; przełączanie działa; auto‑refresh co 15 s działa.
+- Brak dodatkowych buildów/serwerów frontu; wszystko serwowane przez FastAPI.
+
+Plan wykonania:
+1) Dopracowanie tabel/kolorowania zmian na Overview (opcjonalnie: kolor zielony/czerwony). [1–2h]
+2) Asset detail: drobne poprawki osi/ticków i komunikatów; w razie potrzeby odchudzenie datasetu. [1h]
+3) Alerts: poprawa UX selecta (zachowanie wyboru po refreshu) i sortowanie po stronie API (już desc). [1h]
+
+Testy/Sprawdzenie (ręczne, bez E2E tooli):
+- Status HTTP 200 dla `/ui`, `/ui/assets/BTC`, `/ui/alerts` przez `TestClient` (prosty smoke test).
+- Manual: dodać aktywo przez `/assets`, zasymulować wpisy cen, sprawdzić odświeżanie tabel/wykresu.
+
+Możliwe rozszerzenia (po MVP):
+- Zamiast pollingu: SSE/WebSocket tylko dla wykresu.
+- Uproszczone KPI na Overview z `/prices/summary`.
+- Dodanie formularza tworzenia alertów użytkownika (POST/DELETE /alerts — poza MVP).
