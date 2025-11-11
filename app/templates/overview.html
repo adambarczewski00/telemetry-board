@@ -49,15 +49,16 @@
       tr.innerHTML = `<td>${a.symbol}</td><td>${a.name ?? ''}</td><td class="num price">—</td><td class="num change">—</td><td><a href="/ui/assets/${a.symbol}">Open</a></td>`;
       tbody.appendChild(tr);
       try {
-        const prices = await fetchJSON(`/prices?asset=${encodeURIComponent(a.symbol)}&window=24h`);
-        if (prices.length > 0) {
-          const last = prices[prices.length - 1].price;
-          const first = prices[0].price;
-          tr.querySelector('td.price').textContent = Number(last).toFixed(2);
+        // Faster first paint: use compact summary endpoint
+        const sum = await fetchJSON(`/prices/summary?asset=${encodeURIComponent(a.symbol)}&window=24h`);
+        if (sum.points > 0 && sum.last !== null && sum.first !== null) {
+          const last = Number(sum.last);
+          const first = Number(sum.first);
+          tr.querySelector('td.price').textContent = last.toFixed(2);
           const change = pct(last, first);
-      const changeCell = tr.querySelector('td.change');
-      const sign = change >= 0 ? '+' : '';
-      changeCell.textContent = `${sign}${change.toFixed(2)}%`;
+          const changeCell = tr.querySelector('td.change');
+          const sign = change >= 0 ? '+' : '';
+          changeCell.textContent = `${sign}${change.toFixed(2)}%`;
           changeCell.classList.toggle('delta-pos', change >= 0);
           changeCell.classList.toggle('delta-neg', change < 0);
         } else {

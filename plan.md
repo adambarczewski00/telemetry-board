@@ -217,9 +217,17 @@ scrape_configs:
 
 * Pojawia się alert po spełnieniu warunku. ✔️ (testy `test_alerts_compute.py`)
 
-### F4 — Testy + dokumentacja + „HR polish” (2–3 h)
+### F4 — UI (minimal) + Testy + dokumentacja (2–3 h)
 
-* **Testy**: unit + integracja (worker→DB→API).
+1. UI szkielet (`/ui`, `/ui/assets/{symbol}`, `/ui/alerts`) — ✔️
+2. Kolorowanie zmian 24h + drobne poprawki tabel — ✔️
+3. Smoke testy 200: `/ui`, `/ui/assets/{symbol}`, `/ui/alerts` — ✔️
+4. Backfill 24h i częstszy fetch (60s) — ✔️
+5. Optymalizacja overview (użycie `/prices/summary` na FP) — ✔️
+6. Asset: szybki retry po starcie, DOMContentLoaded — ✔️
+7. Do zrobienia: sortowanie po 24h change, selektor okna (1h/24h/7d), przycisk „Compute now” (enqueue backfill + compute_alerts), formularz tworzenia reguły alertu.
+
+* **Testy**: unit + integracja (worker→DB→API). — w toku
 * **README (Ubuntu)**: pełne uruchomienie, Mermaid, Prometheus, SLO, Security/Networking.
 * **Screenshots/**: `docker compose ps`, log workera, `curl /prices`, `curl /alerts`, Prometheus Targets.
 * **CI badge** + tag `v0.1.0`.
