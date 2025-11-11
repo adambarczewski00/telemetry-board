@@ -18,9 +18,9 @@ telemetry-board/
 ### F0 — Repo + CI + Compose (2–3 h)
 
 1. **Repo**: jak opisałeś (README/LICENCE/CONTRIBUTING/CODEOWNERS/.editorconfig/.gitignore).
-   — *Ubuntu note*: nic specjalnego.
+   — ✔️ (README/CODEOWNERS/CONTRIBUTING/LICENSE/.gitignore oraz dodane .editorconfig)
 
-2. **Makefile** (pod Ubuntu/Docker CLI):
+2. **Makefile** (pod Ubuntu/Docker CLI): — ✔️
 
 ```Makefile
 .PHONY: bootstrap-dev lint format typecheck test build compose-up compose-down
@@ -50,14 +50,14 @@ compose-down:
 \tdocker compose down -v
 ```
 
-3. **pyproject.toml** — masz ✔️.
+3. **pyproject.toml** — ✔️
 
-4. **Dockerfile.api / Dockerfile.worker** (multi-stage na `python:3.11-slim`):
+4. **Dockerfile.api / Dockerfile.worker** (multi-stage na `python:3.11-slim`): — ✔️
 
    * Dodaj build stage (`builder`) z `pip wheel` i final stage z minimalnym runtime.
    * Na Ubuntu host nie ma znaczenia — ważne by obrazy były „slim”.
 
-5. **docker-compose.yml** — uzupełnij o **Prometheus** i zdrowie serwisów:
+5. **docker-compose.yml** — uzupełnij o **Prometheus** i zdrowie serwisów: — ✔️ (pliki i healthchecki są)
 
 ```yaml
 services:
@@ -138,7 +138,7 @@ volumes:
   redisdata:
 ```
 
-6. **prometheus.yml** (w repo w `ops/prometheus.yml`):
+6. **prometheus.yml** (w repo w `ops/prometheus.yml`): — ✔️
 
 ```yaml
 global:
@@ -155,9 +155,9 @@ scrape_configs:
       - targets: ["worker:8001"]
 ```
 
-7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`.
+7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`. — ✔️ (dodano .github/workflows/ci.yml)
 
-8. **README** — sekcja „Uruchomienie na Ubuntu” z komendami z Kroku 0 i `make compose-up`.
+8. **README** — sekcja „Uruchomienie na Ubuntu” z komendami z Kroku 0 i `make compose-up`. — ✔️ (dodano szybki start, dev, konfigurację)
 
 **DoD F0 (Ubuntu):**
 
@@ -170,18 +170,19 @@ scrape_configs:
 
 ### F1 — Szkielet API + modele DB + metryki (2–3 h)
 
-1. **Modele SQLAlchemy**: `assets`, `price_history`, `alerts` + migracje (alembic).
+1. **Modele SQLAlchemy**: `assets`, `price_history`, `alerts` + migracje (alembic). — ✔️ (modele + alembic init + baza migracja)
    — *Ubuntu note*: brak różnic.
 
 2. **FastAPI**: `/health`, `/metrics`, `/assets` (GET/POST), `/prices`, `/alerts`.
-   — *Metryki*: `prometheus_client`. Dla Uvicorn/ASGI możesz dodać własny middleware (licznik requestów, histogram latencji, licznik błędów).
-   — *Ważne*: Nie wystawiaj `/metrics` publicznie poza siecią compose (i tak jest tylko wewnątrz).
+   — Status: częściowo (✔️ `/health`, ✔️ `/metrics`, ✔️ `/assets` GET/POST; brak `/prices`/`/alerts`).
+   — *Metryki*: `prometheus_client` + middleware (✔️ licznik i histogram).
+   — *Ważne*: Nie wystawiaj `/metrics` publicznie poza siecią compose (lokalnie wystawione przez port 8000 dla demo).
 
-3. **Konfiguracja** przez zmienne środowiskowe (jak w compose).
+3. **Konfiguracja** przez zmienne środowiskowe (jak w compose). — częściowo (app: `ENABLE_METRICS_ENDPOINT`, `DATABASE_URL` dla DB; worker: `REDIS_URL`, `ENABLE_WORKER_METRICS`, `WORKER_METRICS_PORT`)
 
 **DoD F1 (Ubuntu):**
 
-* `/assets` GET/POST działa.
+* `/assets` GET/POST działa. ✔️
 * `/prices` zwraca pustą serię lub dane testowe.
 * `/metrics` działa; Prometheus target `api` = UP.
 
@@ -189,10 +190,10 @@ scrape_configs:
 
 ### F2 — Worker + pierwszy realny fetch (2–3 h)
 
-1. **Celery app** (Redis broker/backend) — zarejestruj zadania.
-2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`).
-3. **Źródło**: CoinGecko/alternatywa (requests + backoff).
-4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`).
+1. **Celery app** (Redis broker/backend) — zarejestruj zadania. — ✔️ (bazowy worker + `ping`)
+2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). — TODO
+3. **Źródło**: CoinGecko/alternatywa (requests + backoff). — TODO
+4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`). — ✔️
 
 **DoD F2 (Ubuntu):**
 
@@ -247,6 +248,53 @@ scrape_configs:
 ## Celery — rate-limit/backoff — bez zmian (implementacja po MVP)
 
 ---
+
+## Strategia gałęzi i commitów (plan)
+
+- Główne zasady:
+  - Małe, izolowane PR-y, każdy zielony na CI przed merge.
+  - Konwencje commitów: `feat:`, `fix:`, `chore:`, `test:` (+ prefiks modułu, np. `api`, `db`).
+  - Branch per feature; rebase na `main` przed PR.
+
+- Gałęzie F1:
+  - `feature/f1-models-db` — modele SQLAlchemy + konfiguracja DB + alembic init.
+  - `feature/f1-assets-endpoints` — `/assets` GET/POST + schematy Pydantic.
+  - `feature/f1-prices-alerts` — `/prices`, `/alerts` (MVP, bez workera).
+
+- Przybliżone commity (przykłady):
+  - `feat(db): add SQLAlchemy models (assets, price_history, alerts)`
+  - `feat(db): add settings + session factory`
+  - `chore(alembic): init and base revision`
+  - `feat(api): add /assets GET/POST + schemas`
+  - `test(api): add /assets tests (create/list/validation)`
+  - `feat(api): add /prices MVP (empty or mock)`
+  - `feat(api): add /alerts MVP (empty or mock)`
+  - `test(api): add /prices and /alerts tests`
+
+- PR-y:
+  - 1 PR per gałąź, opis zmian + kroki weryfikacji: `ruff`, `mypy`, `pytest`, `docker compose build`.
+
+## Plan testów jednostkowych (F1)
+
+- testy istniejące: `tests/test_health.py`, `tests/test_metrics.py` — pozostają.
+- nowe pliki:
+  - `tests/test_assets.py`
+    - `test_get_assets_empty`
+    - `test_create_asset_valid`
+    - `test_create_asset_duplicate`
+    - `test_create_asset_validation`
+  - `tests/test_prices.py`
+    - `test_get_prices_empty`
+    - `test_get_prices_invalid_asset`
+    - `test_get_prices_window_param`
+  - `tests/test_alerts.py`
+    - `test_get_alerts_empty`
+    - `test_get_alerts_invalid_asset`
+
+- uwagi:
+  - FastAPI `TestClient`, baza: in-memory/tymczasowa z izolacją na test (fixture).
+  - Bez zewnętrznych serwisów; worker nieużywany w F1.
+
 
 ## Checklist „anty-potknięcia” (Ubuntu)
 
