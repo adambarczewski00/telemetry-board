@@ -373,7 +373,7 @@ Cel: minimalny i stabilny backend, gotowy do działania 24/7, UI dokończymy na 
   - Indeksy: upewnić się o (asset_id, ts) i uniq (jest w modelu) — dodać migrację Alembic — pending
 - Operacyjność
   - Prometheus: metryki API/worker — ✔️
-  - Konfiguracja przez ENV: ASSETS, FETCH_INTERVAL_SECONDS, ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT, RETENTION_DAYS (nowe) — pending dokumentacja
+  - Konfiguracja przez ENV: ASSETS, FETCH_INTERVAL_SECONDS, ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT, RETENTION_DAYS (nowe) — ✔️ udokumentowane
   - Skromne limity/guardy: cap `limit` w /alerts (jest), walidacja `window` — ✔️
 
 Plan implementacji (backend)
@@ -381,11 +381,12 @@ Plan implementacji (backend)
 2) Retention task (Celery beat): usuń PriceHistory starsze niż N dni (ENV RETENTION_DAYS, domyślnie 30) — pending
 3) Prosty backoff w fetch_price (na 429/5xx): retry po 1s, 2s, 4s (max 3 próby) — pending
 4) Alembic migration: indeks po (asset_id, ts), walidacja uniq (jeśli brak w migracjach) — pending
-5) README/OPERATIONS: sekcja „Konfiguracja backendu” — pending
+5) README/OPERATIONS: sekcja „Konfiguracja backendu” — ✔️ dodana
 
 Plan testów (backend)
 - API
-  - test_prices_window_filter — dodać
+  - test_prices_window_filter — ✔️ tests/test_prices.py
+  - test_prices_invalid_window — ✔️ tests/test_prices.py
   - test_prices_summary_empty i stats — ✔️ tests/test_prices_summary.py
   - test_alerts_limit_order — ✔️ (już istnieje)
 - Worker

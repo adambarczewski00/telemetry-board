@@ -37,7 +37,10 @@ def get_prices(
 
     cutoff: Optional[datetime] = None
     if window:
-        cutoff = _parse_window_to_cutoff(window)
+        try:
+            cutoff = _parse_window_to_cutoff(window)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid window")
 
     q = select(PriceHistory).where(PriceHistory.asset_id == asset_row.id)
     if cutoff is not None:
@@ -83,7 +86,10 @@ def get_price_summary(
     if asset_row is None:
         raise HTTPException(status_code=404, detail="asset not found")
 
-    cutoff = _parse_window_to_cutoff(window)
+    try:
+        cutoff = _parse_window_to_cutoff(window)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid window")
     rows = (
         db.execute(
             select(PriceHistory)

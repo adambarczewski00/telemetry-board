@@ -146,3 +146,17 @@ If you want, I can also add a GHCR-based CD (build images in CI, docker compose 
 
 
 
+## Konfiguracja backendu
+
+- API
+  - `ENABLE_METRICS_ENDPOINT` — odsłania `/metrics` (domyślnie wyłączone; włącz na wewnętrznych sieciach).
+- Worker/Beat
+  - `ENABLE_BEAT` — aktywuje harmonogram zadań (fetch/prune/alerts).
+  - `ASSETS` — lista symboli do pobierania, np. `BTC,ETH`.
+  - `FETCH_INTERVAL_SECONDS` — co ile sekund pobierać ceny (domyślnie 300).
+  - `ALERT_WINDOW_MINUTES` — okno czasowe dla alertów (domyślnie 60).
+  - `ALERT_THRESHOLD_PCT` — próg procentowy dla alertu (domyślnie 5).
+  - Retencja danych:
+    - `RETENTION_DAYS` — ile dni przechowywać dane cen (domyślnie 30). Ustaw `0`, aby wyłączyć czyszczenie.
+    - `RETENTION_INTERVAL_SECONDS` — interwał uruchamiania czyszczenia (domyślnie 86400).
+    - Zadanie `prune_old_prices` usuwa wiersze starsze niż `RETENTION_DAYS` — kontroluj dysk i rozmiar bazy.
