@@ -13,12 +13,17 @@ def build_beat_schedule(assets: List[str], every_seconds: int) -> Dict[str, dict
     """
     seconds = max(1, int(every_seconds))
     normalized = [a.strip().upper() for a in assets if a.strip()]
-    return {
-        f"fetch_{sym}": {
+    schedule: Dict[str, dict] = {}
+    for sym in normalized:
+        schedule[f"fetch_{sym}"] = {
             "task": "fetch_price",
             "schedule": sched(timedelta(seconds=seconds)),
             "args": (sym,),
         }
-        for sym in normalized
-    }
-
+        # Also compute alerts on the same cadence (simple MVP assumption)
+        schedule[f"compute_{sym}"] = {
+            "task": "compute_alerts",
+            "schedule": sched(timedelta(seconds=seconds)),
+            "args": (sym,),
+        }
+    return schedule

@@ -44,6 +44,10 @@ try:
 except Exception:
     # Keep the worker importable even if optional deps are missing in some envs
     pass
+try:
+    import worker.tasks.alerts  # noqa: F401
+except Exception:
+    pass
 
 
 def _enable_beat() -> bool:
