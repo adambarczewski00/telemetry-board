@@ -174,7 +174,7 @@ scrape_configs:
    — *Ubuntu note*: brak różnic.
 
 2. **FastAPI**: `/health`, `/metrics`, `/assets` (GET/POST), `/prices`, `/alerts`.
-   — Status: częściowo (✔️ `/health`, ✔️ `/metrics`, ✔️ `/assets` GET/POST; brak `/prices`/`/alerts`).
+   — ✔️ `/health`, ✔️ `/metrics`, ✔️ `/assets` GET/POST, ✔️ `/prices` (MVP), ✔️ `/alerts` (MVP).
    — *Metryki*: `prometheus_client` + middleware (✔️ licznik i histogram).
    — *Ważne*: Nie wystawiaj `/metrics` publicznie poza siecią compose (lokalnie wystawione przez port 8000 dla demo).
 
@@ -183,22 +183,23 @@ scrape_configs:
 **DoD F1 (Ubuntu):**
 
 * `/assets` GET/POST działa. ✔️
-* `/prices` zwraca pustą serię lub dane testowe.
+* `/prices` zwraca pustą serię lub dane testowe. ✔️ (MVP; walidacja istnienia assetu)
 * `/metrics` działa; Prometheus target `api` = UP.
 
 ---
 
 ### F2 — Worker + pierwszy realny fetch (2–3 h)
 
-1. **Celery app** (Redis broker/backend) — zarejestruj zadania. — ✔️ (bazowy worker + `ping`)
-2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). — TODO
-3. **Źródło**: CoinGecko/alternatywa (requests + backoff). — TODO
-4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`). — ✔️
+1. **Celery app** (Redis broker/backend) — zarejestruj zadania. — ✔️ (bazowy worker + `ping` + rejestracja tasks)
+2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). — ✔️ (task + harmonogram przez Celery Beat, env: ASSETS/FETCH_INTERVAL_SECONDS)
+3. **Źródło**: CoinGecko/alternatywa (requests + backoff). — ✔️ (MVP: CoinGecko simple/price; testy z mockiem)
+4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`). — ✔️ (liczniki + histogram dla taska)
 
 **DoD F2 (Ubuntu):**
 
-* Worker zapisuje realne ceny (min. `BTC`) do Postgresa.
-* Prometheus scrapuje `worker` i widać wzrost liczników.
+* Worker zapisuje realne ceny (min. `BTC`) do Postgresa. ✔️ (w testach oraz realnie przy dostępnej sieci)
+* Prometheus scrapuje `worker` i widać wzrost liczników. ✔️ (endpoint działa; liczniki dodane)
+* Beat uruchamia `fetch_price` cyklicznie (compose: usługa `beat`). ✔️
 
 ---
 
@@ -206,15 +207,15 @@ scrape_configs:
 
 ### F3 — Alerty procentowe + endpointy (2 h)
 
-* Reguła N% w M min, parametry globalne/per-asset.
-* Task okresowy liczy `change_pct` i zapisuje do `alerts`.
-* `/alerts?asset=BTC&limit=20`.
-* Logi JSON ze szczegółami alertu.
-* Metryki: `alerts_total`, `alert_compute_seconds`.
+* Reguła N% w M min, parametry globalne/per-asset. — ✔️ (ENV: ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT)
+* Task okresowy liczy `change_pct` i zapisuje do `alerts`. — ✔️ (`compute_alerts` + beat)
+* `/alerts?asset=BTC&limit=20`. — ✔️ (MVP z F1)
+* Logi JSON ze szczegółami alertu. — TODO (opcjonalnie)
+* Metryki: `alerts_total`, `alert_compute_seconds`. — ✔️
 
 **DoD F3 (Ubuntu):**
 
-* Pojawia się alert po spełnieniu warunku.
+* Pojawia się alert po spełnieniu warunku. ✔️ (testy `test_alerts_compute.py`)
 
 ### F4 — Testy + dokumentacja + „HR polish” (2–3 h)
 
