@@ -6,6 +6,8 @@ from fastapi import FastAPI
 
 from .metrics import metrics_middleware, router as metrics_router
 from .api.assets import router as assets_router
+from .api.prices import router as prices_router
+from .api.alerts import router as alerts_router
 
 
 def _flag(env_var: str, default: bool = False) -> bool:
@@ -28,6 +30,8 @@ def create_app() -> FastAPI:
 
     # Business endpoints
     application.include_router(assets_router)
+    application.include_router(prices_router)
+    application.include_router(alerts_router)
 
     @application.get("/health")
     def _health() -> dict[str, str]:
