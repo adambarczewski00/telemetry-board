@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 
 from .metrics import metrics_middleware, router as metrics_router
+from .api.assets import router as assets_router
 
 
 def _flag(env_var: str, default: bool = False) -> bool:
@@ -24,6 +25,9 @@ def create_app() -> FastAPI:
     if _flag("ENABLE_METRICS_ENDPOINT"):
         # Only expose /metrics when the deployment explicitly enables it.
         application.include_router(metrics_router)
+
+    # Business endpoints
+    application.include_router(assets_router)
 
     @application.get("/health")
     def _health() -> dict[str, str]:

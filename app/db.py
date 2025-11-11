@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import os
-from typing import Generator
+from typing import Generator, Optional
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+
+from .models import Base
+
+
+_engine: Optional[Engine] = None
+_engine_url: Optional[str] = None
 
 
 def _default_db_url() -> str:
@@ -12,8 +19,17 @@ def _default_db_url() -> str:
     return os.getenv("DATABASE_URL", "sqlite:///./dev.db")
 
 
-ENGINE = create_engine(_default_db_url(), pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=ENGINE, autoflush=False, autocommit=False, future=True)
+def get_engine() -> Engine:
+    """Return a process-wide Engine, recreating it when DATABASE_URL changes.
+
+    This makes tests reliable when they override DATABASE_URL per test.
+    """
+    global _engine, _engine_url
+    current_url = _default_db_url()
+    if _engine is None or _engine_url != current_url:
+        _engine = create_engine(current_url, pool_pre_ping=True)
+        _engine_url = current_url
+    return _engine
 
 
 def get_session() -> Generator[Session, None, None]:
@@ -21,9 +37,14 @@ def get_session() -> Generator[Session, None, None]:
 
     Closes the session after use to avoid connection leaks.
     """
+    SessionLocal = sessionmaker(bind=get_engine(), autoflush=False, autocommit=False, future=True)
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
+
+def create_all() -> None:
+    """Create all tables using SQLAlchemy metadata (useful for tests/dev)."""
+    Base.metadata.create_all(bind=get_engine())
