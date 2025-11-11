@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Final
-
+from datetime import timedelta
 from celery import Celery
 from prometheus_client import start_http_server
 from celery.schedules import schedule as sched
