@@ -5,6 +5,7 @@ from typing import Final
 
 from celery import Celery
 from prometheus_client import start_http_server
+from celery.schedules import schedule as sched
 from worker.schedule import build_beat_schedule, LazyBeatSchedule
 
 # Default local-stack broker URL; production is provided via env.
@@ -49,6 +50,10 @@ try:
     import worker.tasks.alerts  # noqa: F401
 except Exception:
     pass
+try:
+    import worker.tasks.maintenance  # noqa: F401
+except Exception:
+    pass
 
 
 def _enable_beat() -> bool:
@@ -66,7 +71,17 @@ def _build_schedule_from_env() -> dict[str, dict]:
         return {}
     interval = int(os.getenv("FETCH_INTERVAL_SECONDS", "300"))
     assets = _parse_assets_env()
-    return build_beat_schedule(assets, interval)
+    schedule = build_beat_schedule(assets, interval)
+    # Retention job (optional): run daily by default
+    retention_days = int(os.getenv("RETENTION_DAYS", "30"))
+    if retention_days > 0:
+        retention_interval = int(os.getenv("RETENTION_INTERVAL_SECONDS", "86400"))
+        schedule["prune_old_prices"] = {
+            "task": "prune_old_prices",
+            "schedule": sched(timedelta(seconds=retention_interval)),
+            "args": (retention_days,),
+        }
+    return schedule
 
 
 # Use a lazy schedule so tests that set env after an earlier import

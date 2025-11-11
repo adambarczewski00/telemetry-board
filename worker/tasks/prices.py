@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Mapping
+import time
 
 import requests
 from prometheus_client import Counter, Histogram
@@ -34,11 +35,26 @@ def _get_price_usd(symbol: str) -> float:
     if cg_id is None:
         raise ValueError("unsupported asset symbol")
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={cg_id}&vs_currencies=usd"
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
-    data: Mapping[str, Any] = resp.json()
-    price = float(data[cg_id]["usd"])  # type: ignore[index]
-    return price
+    # Minimal, stable backoff on transient errors (429/5xx)
+    delays = [1, 2, 4]
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate([0] + delays):
+        try:
+            resp = requests.get(url, timeout=10)
+            # If status indicates transient issue, raise to trigger retry
+            if resp.status_code in (429,) or resp.status_code >= 500:
+                resp.raise_for_status()
+            resp.raise_for_status()
+            data: Mapping[str, Any] = resp.json()
+            price = float(data[cg_id]["usd"])  # type: ignore[index]
+            return price
+        except Exception as e:  # pragma: no cover - branches tested via monkeypatch
+            last_exc = e
+            if attempt == len(delays):
+                break
+            time.sleep(delay)
+    assert last_exc is not None
+    raise last_exc
 
 
 def _session() -> Session:

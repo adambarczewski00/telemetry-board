@@ -356,6 +356,55 @@ curl http://localhost:8000/health      # => ok
   - Dokumentacja: krótka sekcja w README „UI” (jak wejść, co działa) + 1–2 screenshoty.
 
 — Koniec kontekstu: tu zakończono pracę; kontynuuj od listy „Najbliższe kroki (F4)”.
+
+## F4 — Backend finish (stability first)
+
+Cel: minimalny i stabilny backend, gotowy do działania 24/7, UI dokończymy na końcu.
+
+- API
+  - /prices honoruje `window` (minuty, h, d) — ✔️ zrobione
+  - /prices/summary (points, first, last, min, max, avg) — ✔️ zrobione
+  - /alerts (GET) — ✔️ jest, dopracować limity i walidację
+  - (opcjonalnie) POST/DELETE /alerts dla user‑defined alertów — odłożyć
+- Worker
+  - fetch_price: timeout 10s — ✔️; mapowanie BTC/ETH — ✔️; dodać prosty backoff przy HTTP 429/5xx (exponential sleep) — pending
+  - compute_alerts: okno/prog z ENV — ✔️; metryki — ✔️
+  - Retencja: dodać okresowe czyszczenie starych próbek (np. >30d, ENV RETENTION_DAYS) — pending
+  - Indeksy: upewnić się o (asset_id, ts) i uniq (jest w modelu) — dodać migrację Alembic — pending
+- Operacyjność
+  - Prometheus: metryki API/worker — ✔️
+  - Konfiguracja przez ENV: ASSETS, FETCH_INTERVAL_SECONDS, ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT, RETENTION_DAYS (nowe) — pending dokumentacja
+  - Skromne limity/guardy: cap `limit` w /alerts (jest), walidacja `window` — ✔️
+
+Plan implementacji (backend)
+1) Dodać `GET /prices/summary` i `window` w /prices — ✔️
+2) Retention task (Celery beat): usuń PriceHistory starsze niż N dni (ENV RETENTION_DAYS, domyślnie 30) — pending
+3) Prosty backoff w fetch_price (na 429/5xx): retry po 1s, 2s, 4s (max 3 próby) — pending
+4) Alembic migration: indeks po (asset_id, ts), walidacja uniq (jeśli brak w migracjach) — pending
+5) README/OPERATIONS: sekcja „Konfiguracja backendu” — pending
+
+Plan testów (backend)
+- API
+  - test_prices_window_filter — dodać
+  - test_prices_summary_empty i stats — ✔️ tests/test_prices_summary.py
+  - test_alerts_limit_order — ✔️ (już istnieje)
+- Worker
+  - test_worker_fetch_success — ✔️ tests/test_worker_fetch.py
+  - test_worker_fetch_backoff_on_429/5xx — dodać (monkeypatch requests.get)
+  - test_alerts_compute_env_window_threshold — ✔️ (już istnieje)
+  - test_alert_metrics_increment — ✔️ tests/test_alerts_metrics.py
+  - test_beat_schedule_assets_interval — ✔️ (istnieje schedule test)
+- Retencja
+  - test_retention_task_removes_old_rows — dodać
+
+Akceptacja (backend)
+- Po 2–5 minutach od startu: `/prices?asset=BTC&window=24h` zwraca punkty; `/prices/summary` zwraca statystyki.
+- Alerty generują się w oknie i progu z ENV, `/alerts?asset=BTC&limit=20` zwraca co najmniej jeden alert przy większym ruchu.
+- Metryki API/worker są dostępne, Prometheus ma targety UP.
+- Retencja usuwa stare dane zgodnie z ENV (jeśli ustawione), brak wycieków połączeń.
+
+Na końcu (F5) dopracujemy UI na bazie stabilnego backendu.
+
 Here’s a practical roadmap to move the app forward — especially a simple, useful UI.
 
 Product Roadmap
