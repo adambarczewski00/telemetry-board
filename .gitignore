@@ -1,2 +1,10 @@
 .venv/
-.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pre-commit-cache/
+dist/
+build/
+telemetry_board.egg-info/

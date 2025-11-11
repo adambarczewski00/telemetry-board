@@ -1,0 +1,28 @@
+# ===== builder =====
+# Build Python wheels once so the runtime layer stays slim.
+FROM python:3.11-slim AS builder
+WORKDIR /w
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+
+COPY pyproject.toml README.md LICENSE ./
+COPY app ./app
+COPY worker ./worker
+
+RUN python -m pip install --upgrade pip \
+ && pip wheel --wheel-dir /wheels .
+
+# ===== runtime =====
+# Final image only needs the wheels plus the source package metadata.
+FROM python:3.11-slim
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+
+COPY --from=builder /wheels /wheels
+RUN python -m pip install --upgrade pip \
+ && pip install --no-index --find-links=/wheels telemetry-board \
+ && rm -rf /wheels
+
+EXPOSE 8000
+# Run the FastAPI app with uvicorn and bind to every interface.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

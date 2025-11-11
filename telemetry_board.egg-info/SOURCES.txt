@@ -1,8 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-telemetry_board.egg-info/PKG-INFO
-telemetry_board.egg-info/SOURCES.txt
-telemetry_board.egg-info/dependency_links.txt
-telemetry_board.egg-info/requires.txt
-telemetry_board.egg-info/top_level.txt

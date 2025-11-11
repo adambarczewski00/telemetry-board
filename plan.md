@@ -32,7 +32,7 @@ lint:
 \truff check .
 
 format:
-\tblack .
+\truff format .
 
 typecheck:
 \tmypy .
@@ -155,7 +155,7 @@ scrape_configs:
       - targets: ["worker:8001"]
 ```
 
-7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/black/mypy/pytest, build obrazów, Trivy z `exit-code: 0`.
+7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`.
 
 8. **README** — sekcja „Uruchomienie na Ubuntu” z komendami z Kroku 0 i `make compose-up`.
 
