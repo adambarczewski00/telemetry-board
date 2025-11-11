@@ -23,6 +23,10 @@ RUN python -m pip install --upgrade pip \
  && pip install --no-index --find-links=/wheels telemetry-board \
  && rm -rf /wheels
 
+# Include Alembic migration config and scripts for in-container migrations.
+COPY alembic.ini ./
+COPY alembic ./alembic
+
 EXPOSE 8000
 # Run the FastAPI app with uvicorn and bind to every interface.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
