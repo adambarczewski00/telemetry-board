@@ -59,7 +59,7 @@ services:
       - redis
       - postgres
     user: "65534:65534"
-    command: ["celery", "-A", "worker.worker_app:celery_app", "beat", "--loglevel=info"]
+    command: ["celery", "-A", "worker.worker_app:celery_app", "beat", "--loglevel=info", "-s", "/tmp/celerybeat-schedule"]
 
   postgres:
     # Stateful Postgres instance scoped to the compose network.
