@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import ForeignKey, Numeric, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 from .base import Base
 
@@ -21,5 +22,7 @@ class PriceHistory(Base):
     )
 
     # define relationship to Asset lazily (string ref) to avoid circular import
-    asset: Mapped["Asset"] = relationship(backref="prices")
+    if TYPE_CHECKING:  # only for type checkers/linters
+        from .asset import Asset
 
+    asset: Mapped["Asset"] = relationship(backref="prices")

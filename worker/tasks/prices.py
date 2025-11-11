@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -73,4 +71,3 @@ def fetch_price(self, symbol: str) -> float:
 
     FETCH_SUCCESS.labels(symbol=symbol_u).inc()
     return price
-
