@@ -18,7 +18,7 @@ init() {
 
 migrate() {
   note "Running Alembic migrations"
-  docker compose run --rm api alembic upgrade head
+  docker compose run --rm api alembic -c alembic.ini upgrade head
 }
 
 start() {
@@ -92,4 +92,3 @@ main() {
 }
 
 main "$@"
-

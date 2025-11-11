@@ -26,6 +26,55 @@ Zatrzymanie i sprzątanie:
 make compose-down
 ```
 
+## Deployment (pierwsze wdrożenie na serwerze)
+
+Prosty, przewidywalny proces bez dodatkowych narzędzi — tylko Docker Compose.
+
+1) Wymagania na serwerze
+- Zainstalowany Docker i Docker Compose.
+- Dostęp SSH, otwarty port 8000 (API). Port 9090 (Prometheus) tylko w sieci zaufanej lub zablokowany.
+
+2) Pobranie repo i przygotowanie
+```bash
+git clone <repo-url> telemetry-board
+cd telemetry-board
+```
+
+3) Uruchom bazy danych
+```bash
+docker compose up -d postgres redis
+```
+
+4) Migracje schematu (Alembic)
+```bash
+docker compose run --rm api alembic -c alembic.ini upgrade head
+```
+
+5) Start usług
+```bash
+docker compose up -d api worker beat prometheus
+```
+
+6) Smoke-check
+- API: `curl http://localhost:8000/health` → `{ "status": "ok" }`
+- Logi: `docker compose logs -f api worker beat`
+- Prometheus (opcjonalnie): `http://localhost:9090/targets`
+
+Aktualizacja wdrożenia:
+```bash
+git pull
+docker compose build --no-cache
+docker compose up -d
+docker compose run --rm api alembic upgrade head
+```
+
+Wyłączenie usług:
+```bash
+docker compose down
+```
+
+Uwaga: zmienne środowiskowe są ustawione w `docker-compose.yml`. W razie potrzeby możesz utworzyć `.env` z nadpisaniami (np. `ENABLE_METRICS_ENDPOINT=false` dla prod).
+
 ## Praca deweloperska (lokalnie)
 
 ```bash
