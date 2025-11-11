@@ -1,0 +1,39 @@
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telemetry-board"
+version = "0.1.0"
+description = "Crypto Telemetry Board services"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+authors = [{name = "Adam Barczewski"}]
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "celery>=5.3",
+    "redis>=5.0",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.1",
+    "alembic>=1.13",
+    "prometheus-client>=0.20",
+    "requests>=2.32",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "worker*"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+strict_optional = true
+explicit_package_bases = true
+mypy_path = ["stubs", "."]
