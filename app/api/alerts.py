@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
@@ -14,7 +15,7 @@ from app.models import Alert, Asset
 class AlertOut(BaseModel):
     id: int
     asset_id: int
-    triggered_at: str
+    triggered_at: datetime
     window_minutes: int
     change_pct: float
 
