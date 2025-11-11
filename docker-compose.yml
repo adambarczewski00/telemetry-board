@@ -42,6 +42,23 @@ services:
       timeout: 3s
       retries: 10
 
+  beat:
+    # Celery Beat scheduler to trigger periodic fetch tasks.
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
+      - REDIS_URL=redis://redis:6379/0
+      - ENABLE_WORKER_METRICS=false
+      - ENABLE_BEAT=true
+      - ASSETS=BTC,ETH
+      - FETCH_INTERVAL_SECONDS=300
+    depends_on:
+      - redis
+      - postgres
+    command: ["celery", "-A", "worker.worker_app.celery_app", "beat", "--loglevel=info"]
+
   postgres:
     # Stateful Postgres instance scoped to the compose network.
     image: postgres:16
