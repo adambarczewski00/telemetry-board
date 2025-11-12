@@ -95,8 +95,6 @@ flowchart TB
   CF --> Prom[Prometheus]
   Prom -->|scrape metrics| API[API]
   Prom -->|scrape 8001| Worker[Worker]
-  API -. eksponuje metrics .-
-  Worker -. eksponuje 8001 .-
 ```
 
 ---
