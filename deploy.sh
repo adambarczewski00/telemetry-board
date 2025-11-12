@@ -11,19 +11,26 @@ require_tools() {
   docker compose version >/dev/null 2>&1 || die "Docker Compose v2 not found (docker compose)"
 }
 
+# Wrapper around docker compose that supports optional overrides via
+# DEPLOY_OVERRIDES (e.g. "-f ops/compose.tunnel.yml -f ops/compose.prometheus-auth.yml").
+dc() {
+  # shellcheck disable=SC2086
+  docker compose ${DEPLOY_OVERRIDES:-} "$@"
+}
+
 init() {
   note "Starting databases: postgres, redis"
-  docker compose up -d postgres redis
+  dc up -d postgres redis
 }
 
 migrate() {
   note "Running Alembic migrations"
-  docker compose run --rm api alembic -c alembic.ini upgrade head
+  dc run --rm api alembic -c alembic.ini upgrade head
 }
 
 start() {
   note "Starting services: api, worker, beat, prometheus"
-  docker compose up -d api worker beat prometheus
+  dc up -d api worker beat prometheus
 }
 
 up() {
@@ -34,27 +41,27 @@ up() {
 
 update() {
   note "Building images and applying updates"
-  docker compose build --no-cache
-  docker compose up -d
+  dc build --no-cache
+  dc up -d
   migrate
 }
 
 status() {
-  docker compose ps
+  dc ps
 }
 
 logs() {
-  docker compose logs --tail=200 -f api worker beat
+  dc logs --tail=200 -f api worker beat
 }
 
 down() {
   note "Stopping services (preserving volumes)"
-  docker compose down
+  dc down
 }
 
 destroy() {
   note "Stopping services and removing volumes (DATA LOSS)"
-  docker compose down -v
+  dc down -v
 }
 
 help() {
