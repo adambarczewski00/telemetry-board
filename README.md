@@ -2,6 +2,8 @@
 
 Crypto Telemetry Board — FastAPI + Celery + Postgres + Redis + Prometheus.
 
+Materiały dla rekrutera: zobacz prezentację projektu w `docs/PRESENTATION.md` oraz diagramy przepływu w `docs/DIAGRAMS.md`.
+
 ## Szybkie uruchomienie (Ubuntu)
 
 Wymagania: Docker, Docker Compose, Python 3.11 (opcjonalnie dla pracy lokalnej), make.
@@ -10,19 +12,19 @@ Wymagania: Docker, Docker Compose, Python 3.11 (opcjonalnie dla pracy lokalnej),
 git clone <repo-url> telemetry-board
 cd telemetry-board
 
-# Podnieś cały stack lokalny
+# Podniesienie całego stacku lokalnie
 make compose-up
 
 # Zdrowie API
-curl http://localhost:8000/health # => {"status":"ok"}
+curl http://localhost:8000/health  # => {"status":"ok"}
 
-  # Prometheus (opcjonalnie)
-  # przeglądarka: http://localhost:9090/targets
-  ```
+# Prometheus (opcjonalnie)
+# przeglądarka: http://localhost:9090/targets
+```
 
 ## Szybki start: Cloudflare Tunnel + Basic Auth (Prometheus)
 
-Chcesz publiczny dostęp bez otwierania portów? Użyj Cloudflare Tunnel i włącz Basic Auth dla Prometheusa.
+Publiczny dostęp bez otwierania portów zapewnia Cloudflare Tunnel; Prometheus może być chroniony Basic Auth.
 
 - Umieść poświadczenia tunelu w `ops/cloudflared/<TUNNEL-UUID>.json` i ustaw `TUNNEL-UUID` w `ops/cloudflared/config.yml`.
 - (Opcjonalnie) Ustaw w `ops/prometheus/web.yml` sekcję `basic_auth_users` z własnym hashem bcrypt (przykład w pliku).
@@ -137,6 +139,31 @@ Repo zawiera prosty skrypt ułatwiający standardowe operacje:
 ./deploy.sh status   # status kontenerów
 ./deploy.sh logs     # logi api/worker/beat
 ./deploy.sh down     # zatrzymanie (bez kasowania wolumenów)
+```
+
+### Deploy z override'ami (Tunnel + Basic Auth)
+
+- Skrypt respektuje zmienną `DEPLOY_OVERRIDES` i zawsze dołącza bazowy `docker-compose.yml`.
+- Przykład (Cloudflare Tunnel + Prometheus Basic Auth):
+
+```bash
+DEPLOY_OVERRIDES="-f ops/compose.tunnel.yml -f ops/compose.prometheus-auth.yml" ./deploy.sh update
+```
+
+- Jeśli używasz wariantu tokenowego Cloudflare:
+
+```bash
+export CLOUDFLARE_TUNNEL_TOKEN='<twój_token_z_Zero_Trust>'
+DEPLOY_OVERRIDES="-f ops/compose.tunnel.yml -f ops/compose.prometheus-auth.yml" ./deploy.sh update
+```
+
+- Weryfikacja:
+
+```bash
+curl -fsS http://localhost:8000/health
+curl --http1.1 -s -o /dev/null -w "%{http_code}\n" http://localhost:9090/metrics        # 401
+PASS='SuperBezpieczneHaslo123!' \
+  && curl --http1.1 -u "admin:${PASS}" -s -o /dev/null -w "%{http_code}\n" http://localhost:9090/metrics  # 200
 ```
 
 ## Prometheus (przykładowe zapytania)

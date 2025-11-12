@@ -91,7 +91,7 @@ Cel: Uvicorn serwuje API w sieci Docker, Cloudflare zapewnia TLS/WAF i publiczny
 
 ### Prometheus z Basic Auth (alternatywa dla Cloudflare Access)
 
-Chcesz zabezpieczyć Prometheusa hasłem bez Cloudflare Access? Skorzystaj z wbudowanego mechanizmu Basic Auth.
+Aby zabezpieczyć Prometheusa hasłem bez Cloudflare Access, użyj wbudowanego mechanizmu Basic Auth.
 
 - Skonfiguruj hasło w `ops/prometheus/web.yml`:
   - Wygeneruj hash bcrypt (np. `htpasswd -nBC 12 "" | tr -d ':\n'`).
@@ -142,6 +142,32 @@ Przykładowe zdrowe logi:
 ```
 INF Registered tunnel connection connIndex=0 location=fra10 protocol=quic
 INF Updated to new configuration config="{\"ingress\":[...]}" version=2
+```
+
+### Wariant tokenowy (bez pliku JSON)
+
+Zamiast `credentials-file` możesz użyć tokenu z Zero Trust:
+
+```bash
+export CLOUDFLARE_TUNNEL_TOKEN='<twój_token_z_Zero_Trust>'
+docker compose -f docker-compose.yml -f ops/compose.tunnel.yml up -d --force-recreate cloudflared
+```
+
+Skrypt `deploy.sh` wspiera override'y przez `DEPLOY_OVERRIDES` i zawsze dołącza bazę `docker-compose.yml`:
+
+```bash
+DEPLOY_OVERRIDES="-f ops/compose.tunnel.yml -f ops/compose.prometheus-auth.yml" ./deploy.sh update
+```
+
+Weryfikacja końcowa:
+
+```bash
+curl -fsS http://localhost:8000/health                                         # 200
+curl --http1.1 -s -o /dev/null -w "%{http_code}\n" http://localhost:9090/metrics        # 401
+PASS='SuperBezpieczneHaslo123!' \
+  && curl --http1.1 -u "admin:${PASS}" -s -o /dev/null -w "%{http_code}\n" http://localhost:9090/metrics   # 200
+curl -fsS https://api.aionflow.net/health                                      # 200 przez tunel
+curl --http1.1 -u "admin:${PASS}" -s -o /dev/null -w "%{http_code}\n" https://prometheus.aionflow.net/metrics  # 200 przez tunel
 ```
 
 Uwagi

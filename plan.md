@@ -13,7 +13,7 @@ telemetry-board/
 ├─ Makefile
 
 
-## Dzień 1 — Fundamenty + pierwszy przepływ
+## Fundamenty + pierwszy przepływ
 
 ### Aktualizacja (12‑11): status i luki
 
@@ -33,12 +33,12 @@ Najbliższe kroki (propozycja):
 - [ ] (Opcjonalnie) per‑asset `alert_pct`/`alert_window_min` + migracja i użycie w `compute_alerts`.
 - [ ] (Opcjonalnie) logi JSON dla alertów.
 
-### F0 — Repo + CI + Compose (2–3 h)
+### F0 — Repo + CI + Compose
 
 1. **Repo**: jak opisałeś (README/LICENCE/CONTRIBUTING/CODEOWNERS/.editorconfig/.gitignore).
-   — ✔️ (README/CODEOWNERS/CONTRIBUTING/LICENSE/.gitignore oraz dodane .editorconfig)
+   — (README/CODEOWNERS/CONTRIBUTING/LICENSE/.gitignore oraz dodane .editorconfig)
 
-2. **Makefile** (pod Ubuntu/Docker CLI): — ✔️
+2. **Makefile** (pod Ubuntu/Docker CLI):
 
 ```Makefile
 .PHONY: bootstrap-dev lint format typecheck test build compose-up compose-down
@@ -68,14 +68,14 @@ compose-down:
 \tdocker compose down -v
 ```
 
-3. **pyproject.toml** — ✔️
+3. **pyproject.toml**
 
-4. **Dockerfile.api / Dockerfile.worker** (multi-stage na `python:3.11-slim`): — ✔️
+4. **Dockerfile.api / Dockerfile.worker** (multi-stage na `python:3.11-slim`):
 
    * Dodaj build stage (`builder`) z `pip wheel` i final stage z minimalnym runtime.
    * Na Ubuntu host nie ma znaczenia — ważne by obrazy były „slim”.
 
-5. **docker-compose.yml** — uzupełnij o **Prometheus** i zdrowie serwisów: — ✔️ (pliki i healthchecki są)
+5. **docker-compose.yml** — uzupełnij o **Prometheus** i zdrowie serwisów: (pliki i healthchecki są)
 
 ```yaml
 services:
@@ -158,7 +158,7 @@ volumes:
   redisdata:
 ```
 
-6. **prometheus.yml** (w repo w `ops/prometheus.yml`): — ✔️
+6. **prometheus.yml** (w repo w `ops/prometheus.yml`):
 
 ```yaml
 global:
@@ -177,11 +177,11 @@ scrape_configs:
       - targets: ["worker:8001"]
 ```
 
-7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`. — ✔️ (dodano .github/workflows/ci.yml). TODO: dodać krok `trivy image` dla zbudowanych obrazów, aby spełnić „scan image” z wymagań.
+7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`. (dodano .github/workflows/ci.yml). TODO: dodać krok `trivy image` dla zbudowanych obrazów, aby spełnić „scan image” z wymagań.
 
-8. **README** — sekcja „Uruchomienie na Ubuntu” z komendami z Kroku 0 i `make compose-up`. — ✔️ (dodano szybki start, dev, konfigurację)
+8. **README** — sekcja „Uruchomienie na Ubuntu” z komendami z Kroku 0 i `make compose-up`. (dodano szybki start, dev, konfigurację)
 
-**DoD F0 (Ubuntu):**
+**Kryteria akceptacji F0 (Ubuntu):**
 
 * `docker compose up -d --build` uruchamia **api/worker/redis/postgres/prometheus**.
 * `/health` zwraca `ok` (sprawdzone: `curl localhost:8000/health`).
@@ -190,54 +190,54 @@ scrape_configs:
 
 ---
 
-### F1 — Szkielet API + modele DB + metryki (2–3 h)
+### F1 — Szkielet API + modele DB + metryki
 
 1. **Modele SQLAlchemy**: `assets`, `price_history`, `alerts` + migracje (alembic). — ✔️ (modele + alembic init + baza migracja)
    — *Ubuntu note*: brak różnic.
 
 2. **FastAPI**: `/health`, `/metrics`, `/assets` (GET/POST), `/prices`, `/alerts`.
-   — ✔️ `/health`, ✔️ `/metrics`, ✔️ `/assets` GET/POST, ✔️ `/prices` (MVP), ✔️ `/alerts` (MVP).
+   — `/health`, `/metrics`, `/assets` GET/POST, `/prices` (MVP), `/alerts` (MVP).
    — *Metryki*: `prometheus_client` + middleware (✔️ licznik i histogram). TODO: osobny licznik błędów HTTP.
    — *Ważne*: Nie wystawiaj `/metrics` publicznie poza siecią compose (lokalnie wystawione przez port 8000 dla demo).
 
 3. **Konfiguracja** przez zmienne środowiskowe (jak w compose). — częściowo (app: `ENABLE_METRICS_ENDPOINT`, `DATABASE_URL` dla DB; worker: `REDIS_URL`, `ENABLE_WORKER_METRICS`, `WORKER_METRICS_PORT`)
 
-**DoD F1 (Ubuntu):**
+**Kryteria akceptacji F1 (Ubuntu):**
 
-* `/assets` GET/POST działa. ✔️
-* `/prices` zwraca pustą serię lub dane testowe. ✔️ (MVP; walidacja istnienia assetu)
+* `/assets` GET/POST działa.
+* `/prices` zwraca pustą serię lub dane testowe. (MVP; walidacja istnienia assetu)
 * `/metrics` działa; Prometheus target `api` = UP.
 
 ---
 
-### F2 — Worker + pierwszy realny fetch (2–3 h)
+### F2 — Worker + pierwszy realny fetch
 
-1. **Celery app** (Redis broker/backend) — zarejestruj zadania. — ✔️ (bazowy worker + `ping` + rejestracja tasks)
-2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). — ✔️ (task + harmonogram przez Celery Beat, env: ASSETS/FETCH_INTERVAL_SECONDS). Idempotencja: unikalność `(asset_id, ts)` i deduplikacja w backfill; cykliczny fetch zapisuje „now”, więc naturalnie unika duplikatów przy stałym interwale.
-3. **Źródło**: CoinGecko/alternatywa (requests + backoff). — ✔️ (MVP: CoinGecko simple/price; testy z mockiem)
-4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`). — ✔️ (liczniki + histogram dla taska)
+1. **Celery app** (Redis broker/backend) — zarejestruj zadania. (bazowy worker + `ping` + rejestracja tasks)
+2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). (task + harmonogram przez Celery Beat, env: ASSETS/FETCH_INTERVAL_SECONDS). Idempotencja: unikalność `(asset_id, ts)` i deduplikacja w backfill; cykliczny fetch zapisuje „now”, więc naturalnie unika duplikatów przy stałym interwale.
+3. **Źródło**: CoinGecko/alternatywa (requests + backoff). (MVP: CoinGecko simple/price; testy z mockiem)
+4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`). (liczniki + histogram dla taska)
 
-**DoD F2 (Ubuntu):**
+**Kryteria akceptacji F2 (Ubuntu):**
 
-* Worker zapisuje realne ceny (min. `BTC`) do Postgresa. ✔️ (w testach oraz realnie przy dostępnej sieci)
-* Prometheus scrapuje `worker` i widać wzrost liczników. ✔️ (endpoint działa; liczniki dodane)
-* Beat uruchamia `fetch_price` cyklicznie (compose: usługa `beat`). ✔️
+* Worker zapisuje realne ceny (min. `BTC`) do Postgresa. (w testach oraz realnie przy dostępnej sieci)
+* Prometheus scrapuje `worker` i widać wzrost liczników. (endpoint działa; liczniki dodane)
+* Beat uruchamia `fetch_price` cyklicznie (compose: usługa `beat`).
 
 ---
 
-## Dzień 2 — Alerty + polishing + portfolio
+## Alerty + polishing + portfolio
 
-### F3 — Alerty procentowe + endpointy (2 h)
+### F3 — Alerty procentowe + endpointy
 
-* Reguła N% w M min, parametry globalne/per-asset. — ✔️ (ENV: ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT). Per‑asset progi/okna — TODO (rozszerzenie tabeli `assets` i modyfikacja `compute_alerts`).
-* Task okresowy liczy `change_pct` i zapisuje do `alerts`. — ✔️ (`compute_alerts` + beat)
-* `/alerts?asset=BTC&limit=20`. — ✔️ (MVP z F1)
+* Reguła N% w M min, parametry globalne/per-asset. (ENV: ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT). Per‑asset progi/okna — TODO (rozszerzenie tabeli `assets` i modyfikacja `compute_alerts`).
+* Task okresowy liczy `change_pct` i zapisuje do `alerts`. (`compute_alerts` + beat)
+* `/alerts?asset=BTC&limit=20`. (MVP z F1)
 * Logi JSON ze szczegółami alertu. — TODO (opcjonalnie)
-* Metryki: `alerts_total`, `alert_compute_seconds`. — ✔️
+* Metryki: `alerts_total`, `alert_compute_seconds`.
 
-**DoD F3 (Ubuntu):**
+**Kryteria akceptacji F3 (Ubuntu):**
 
-* Pojawia się alert po spełnieniu warunku. ✔️ (testy `test_alerts_compute.py`)
+* Pojawia się alert po spełnieniu warunku. (testy `test_alerts_compute.py`)
 
 ### F4 — UI (minimal) + Testy + dokumentacja (2–3 h)
 
