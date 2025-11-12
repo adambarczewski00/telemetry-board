@@ -19,7 +19,9 @@ class _Resp:
         return self._data
 
 
-def test_fetch_price_retries_then_succeeds(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_fetch_price_retries_then_succeeds(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     # temp DB
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/worker_backoff.db")
     from app.db import create_all, get_engine
@@ -39,7 +41,8 @@ def test_fetch_price_retries_then_succeeds(monkeypatch: MonkeyPatch, tmp_path: P
             return _Resp({}, status_code=500)
         return _Resp({"bitcoin": {"usd": 123.45}}, status_code=200)
 
-    import requests, time
+    import requests
+    import time
 
     monkeypatch.setattr(requests, "get", _fake_get)
     monkeypatch.setattr(time, "sleep", lambda s: None)
@@ -54,7 +57,9 @@ def test_fetch_price_retries_then_succeeds(monkeypatch: MonkeyPatch, tmp_path: P
     assert len(rows) == 1
 
 
-def test_fetch_price_retries_and_fails(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+def test_fetch_price_retries_and_fails(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/worker_backoff_fail.db")
     from app.db import create_all, get_engine
     from sqlalchemy.orm import Session
@@ -68,7 +73,8 @@ def test_fetch_price_retries_and_fails(monkeypatch: MonkeyPatch, tmp_path: Path)
     def _fake_get(url: str, timeout: int = 10) -> _Resp:  # type: ignore[override]
         return _Resp({}, status_code=500)
 
-    import requests, time
+    import requests
+    import time
 
     monkeypatch.setattr(requests, "get", _fake_get)
     monkeypatch.setattr(time, "sleep", lambda s: None)
@@ -83,4 +89,3 @@ def test_fetch_price_retries_and_fails(monkeypatch: MonkeyPatch, tmp_path: Path)
 
     rows = db.query(PriceHistory).all()
     assert len(rows) == 0
-

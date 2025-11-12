@@ -222,10 +222,12 @@ scrape_configs:
 1. UI szkielet (`/ui`, `/ui/assets/{symbol}`, `/ui/alerts`) — ✔️
 2. Kolorowanie zmian 24h + drobne poprawki tabel — ✔️
 3. Smoke testy 200: `/ui`, `/ui/assets/{symbol}`, `/ui/alerts` — ✔️
-4. Backfill 24h i częstszy fetch (60s) — ✔️
+4. Mock seed 7d i częstszy fetch (60s) — ✔️
 5. Optymalizacja overview (użycie `/prices/summary` na FP) — ✔️
 6. Asset: szybki retry po starcie, DOMContentLoaded — ✔️
-7. Do zrobienia: sortowanie po 24h change, selektor okna (1h/24h/7d), przycisk „Compute now” (enqueue backfill + compute_alerts), formularz tworzenia reguły alertu.
+7. Zrobione: selektor okna (1h/24h/7d) i lepsze formatowanie osi na wykresie.
+   Do zrobienia: sortowanie po 24h change, przycisk „Seed now” (enqueue seed_mock_prices),
+   formularz tworzenia reguły alertu.
 
 * **Testy**: unit + integracja (worker→DB→API). — w toku
 * **README (Ubuntu)**: pełne uruchomienie, Mermaid, Prometheus, SLO, Security/Networking.
@@ -255,6 +257,20 @@ scrape_configs:
 ---
 
 ## Celery — rate-limit/backoff — bez zmian (implementacja po MVP)
+
+---
+
+## Tryb portfolio (mock seed) — NOWE
+
+- Brak backfillu z zewnętrznego API; rely on mock seed + bieżący fetch.
+- Worker przy starcie, gdy `ENABLE_MOCK_SEED=true`, zasiewa syntetyczne dane do `MOCK_SEED_HOURS` (domyślnie 168 = 7 dni)
+  co `MOCK_SEED_INTERVAL_SECONDS` (domyślnie 300 s), tylko jeśli pokrycie historii jest mniejsze.
+- Konfiguracja (docker-compose):
+  - `ENABLE_MOCK_SEED=true`
+  - `MOCK_SEED_HOURS=168`
+  - `MOCK_SEED_INTERVAL_SECONDS=300`
+  - `ENABLE_BACKFILL_ON_START=false`, `BACKFILL_HOURS=0`
+  - (opcjonalnie) `RETENTION_DAYS=14..30`
 
 ---
 
@@ -312,7 +328,7 @@ scrape_configs:
 * `api` dostępne lokalnie: `curl http://localhost:8000/health`.
 * Dodany `BTC` (i np. `ETH`) przez `/assets`.
 * Po 2–5 min pojawiają się rekordy w `price_history`.
-* `/prices?asset=BTC&window=24h` zwraca serię.
+* `/prices?asset=BTC&window=24h` oraz `7d` zwracają serię (dzięki mock seed).
 * Co najmniej 1 alert dla testu.
 * Prometheus Targets (`api`, `worker`) = **UP**.
 * CI badge = green, tag `v0.1.0`.
@@ -342,6 +358,7 @@ curl http://localhost:8000/health      # => ok
 
 - Podsumowanie statusu:
   - F0 ✔️, F1 ✔️, F2 ✔️ (wraz z Beat), F3 ✔️ (bez opcjonalnych logów JSON).
+  - F4: UI działające (overview/asset/alerts), selektor okna + formatowanie osi ✔️, mock seed 7d ✔️, brak backfillu.
   - Testy pokrywają: health/metrics, assets, prices/alerts (MVP), worker fetch (+ błędy), beat schedule, compute_alerts oraz integrację API po fetchu.
 
 - Otwarte gałęzie/PR (do review/merge):
