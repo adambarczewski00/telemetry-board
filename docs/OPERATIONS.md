@@ -65,7 +65,9 @@ Cel: Uvicorn serwuje API w sieci Docker, Cloudflare zapewnia TLS/WAF i publiczny
 - Edytuj `ops/cloudflared/config.yml`: podmień `TUNNEL-UUID` na swój.
 - Upewnij się, że DNS hosty odpowiadają domenie (tu: `aionflow.net`):
   - `api.aionflow.net` → service: `http://api:8000`
-  - `prometheus.aionflow.net` → service: `http://prometheus:9090` (zalecane za Cloudflare Access)
+  - `prometheus.aionflow.net` → service: `http://prometheus:9090`
+    - Jeśli trafiasz sporadycznie na 502 do backendu, możesz wymusić HTTP/1.1 do origin:
+      w `ops/cloudflared/config.yml` dla tego hosta ustaw `originRequest.http2Origin: false` (już ustawione w repo).
 - Uruchom z override dla tunelu:
   ```bash
   docker compose -f docker-compose.yml -f ops/compose.tunnel.yml up -d --build
@@ -86,6 +88,61 @@ Cel: Uvicorn serwuje API w sieci Docker, Cloudflare zapewnia TLS/WAF i publiczny
 - `curl -s https://api.aionflow.net/health` → `{ "status": "ok" }`
 - `https://api.aionflow.net/metrics` (jeśli `ENABLE_METRICS_ENDPOINT=true`) – włącz tylko, jeśli chcesz expose’ować metryki.
 - `https://prometheus.aionflow.net/targets` (za Access, jeśli skonfigurowany).
+
+### Prometheus z Basic Auth (alternatywa dla Cloudflare Access)
+
+Chcesz zabezpieczyć Prometheusa hasłem bez Cloudflare Access? Skorzystaj z wbudowanego mechanizmu Basic Auth.
+
+- Skonfiguruj hasło w `ops/prometheus/web.yml`:
+  - Wygeneruj hash bcrypt (np. `htpasswd -nBC 12 "" | tr -d ':\n'`).
+  - Ustaw użytkownika i hash w sekcji `basic_auth_users` (przykład jest zakomentowany w pliku).
+- Dołącz override `ops/compose.prometheus-auth.yml`, który montuje `web.yml` i uruchamia Prometheusa z
+  `--web.config.file=/etc/prometheus/web.yml`.
+
+Uruchomienie tunelu + Basic Auth:
+
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f ops/compose.tunnel.yml \
+  -f ops/compose.prometheus-auth.yml \
+  up -d --build
+```
+
+Szybkie testy:
+
+```bash
+# Bez hasła (401)
+curl --http1.1 -s -o /dev/null -w "no-auth: %{http_code}\n" https://prometheus.aionflow.net/metrics
+
+# Z hasłem (200) — zastąp własnym hasłem
+PASS='SuperBezpieczneHaslo123!'
+curl --http1.1 -u "admin:${PASS}" -s -o /dev/null -w "auth: %{http_code}\n" https://prometheus.aionflow.net/metrics
+
+# Podgląd metryk
+curl --http1.1 -u "admin:${PASS}" -s https://prometheus.aionflow.net/metrics | head -n 5
+```
+
+Oczekiwany wynik:
+
+```
+no-auth: 401
+auth: 200
+# HELP go_gc_cycles_automatic_gc_cycles_total ...
+```
+
+Weryfikacja stanu tunelu:
+
+```bash
+docker logs telemetry-board-cloudflared-1 --tail=50 | egrep -i 'tunnel|connect|error'
+```
+
+Przykładowe zdrowe logi:
+
+```
+INF Registered tunnel connection connIndex=0 location=fra10 protocol=quic
+INF Updated to new configuration config="{\"ingress\":[...]}" version=2
+```
 
 Uwagi
 - Postgres/Redis nadal bez `ports:` — pozostają prywatne (tak jak w podstawowym compose).

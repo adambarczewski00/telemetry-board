@@ -8,3 +8,6 @@ __pycache__/
 dist/
 build/
 telemetry_board.egg-info/
+# Cloudflared credentials (secrets) — never commit
+ops/cloudflared/*.json
+ops/cloudflared/cert.pem
