@@ -1,0 +1,15 @@
+# Prometheus web configuration (auth/TLS for the UI and API)
+# Docs: https://prometheus.io/docs/prometheus/latest/configuration/https/
+
+# By default, no auth is enforced. To enable Basic Auth, replace with:
+# basic_auth_users:
+#   admin: <bcrypt-hash>
+#
+# Generate a bcrypt hash (example commands):
+#  - With apache2-utils (htpasswd):
+#      htpasswd -nBC 12 "" | tr -d ':\n'
+#    Then paste the printed hash in place of <bcrypt-hash>
+#  - With openssl (Linux):
+#      openssl passwd -6  # (this is SHA512-crypt, NOT bcrypt; prefer htpasswd)
+
+basic_auth_users: {}
