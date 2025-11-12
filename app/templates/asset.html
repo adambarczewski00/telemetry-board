@@ -82,7 +82,19 @@
   }
 
   async function loadChart() {
-    const prices = await fetchJSON(`/prices?asset=${encodeURIComponent(SYMBOL)}&window=${encodeURIComponent(WINDOW)}`);
+    let prices = [];
+    try {
+      prices = await fetchJSON(`/prices/?asset=${encodeURIComponent(SYMBOL)}&window=${encodeURIComponent(WINDOW)}`);
+    } catch (e) {
+      const empty = document.getElementById('chart-empty');
+      empty.style.display = '';
+      empty.textContent = `Failed to load price data (${String(e)}).`;
+      const c = ensureChart(document.getElementById('chart').getContext('2d'));
+      c.data.labels = [];
+      c.data.datasets[0].data = [];
+      c.update();
+      return;
+    }
     const empty = document.getElementById('chart-empty');
     if (!prices.length) {
       empty.style.display = '';
@@ -117,7 +129,15 @@
   async function loadAlerts() {
     const tbody = document.getElementById('alerts-body');
     tbody.innerHTML = '';
-    const alerts = await fetchJSON(`/alerts?asset=${encodeURIComponent(SYMBOL)}&limit=20`);
+    let alerts = [];
+    try {
+      alerts = await fetchJSON(`/alerts/?asset=${encodeURIComponent(SYMBOL)}&limit=20`);
+    } catch (e) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan=\"3\"><em>Failed to load alerts (${String(e)}).</em></td>`;
+      tbody.appendChild(tr);
+      return;
+    }
     if (!alerts.length) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan="3"><em>No alerts yet.</em></td>`;
