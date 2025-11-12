@@ -84,7 +84,7 @@
   async function loadChart() {
     let prices = [];
     try {
-      prices = await fetchJSON(`/prices?asset=${encodeURIComponent(SYMBOL)}&window=${encodeURIComponent(WINDOW)}`);
+      prices = await fetchJSON(`/prices/?asset=${encodeURIComponent(SYMBOL)}&window=${encodeURIComponent(WINDOW)}`);
     } catch (e) {
       const empty = document.getElementById('chart-empty');
       empty.style.display = '';
@@ -131,7 +131,7 @@
     tbody.innerHTML = '';
     let alerts = [];
     try {
-      alerts = await fetchJSON(`/alerts?asset=${encodeURIComponent(SYMBOL)}&limit=20`);
+      alerts = await fetchJSON(`/alerts/?asset=${encodeURIComponent(SYMBOL)}&limit=20`);
     } catch (e) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan=\"3\"><em>Failed to load alerts (${String(e)}).</em></td>`;

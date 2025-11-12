@@ -32,7 +32,7 @@
     sel.innerHTML = '';
     let assets = [];
     try {
-      assets = await fetchJSON('/assets');
+      assets = await fetchJSON('/assets/');
     } catch (e) {
       const tbody = document.getElementById('alerts-body');
       const tr = document.createElement('tr');
@@ -61,7 +61,7 @@
     if (!sel.value) return;
     let alerts = [];
     try {
-      alerts = await fetchJSON(`/alerts?asset=${encodeURIComponent(sel.value)}&limit=50`);
+      alerts = await fetchJSON(`/alerts/?asset=${encodeURIComponent(sel.value)}&limit=50`);
     } catch (e) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan="3"><em>Failed to load alerts (${String(e)}).</em></td>`;

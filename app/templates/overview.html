@@ -39,7 +39,7 @@
     tbody.innerHTML = '';
     let assets;
     try {
-      assets = await fetchJSON('/assets');
+      assets = await fetchJSON('/assets/');
     } catch (e) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan="5"><em>Failed to load assets (${String(e)}). Check network/proxy.</em></td>`;
