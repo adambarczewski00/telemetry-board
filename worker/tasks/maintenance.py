@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
 from sqlalchemy import delete
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import get_engine
@@ -29,10 +31,12 @@ def prune_old_prices(self: object, retention_days: int | None = None) -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     session = _session()
     try:
-        result = session.execute(delete(PriceHistory).where(PriceHistory.ts < cutoff))
+        result = cast(
+            "CursorResult[Any]",
+            session.execute(delete(PriceHistory).where(PriceHistory.ts < cutoff)),
+        )
         session.commit()
         # SQLAlchemy 2.0 returns rowcount on the result; fallback to 0 if None
         return int(result.rowcount or 0)
     finally:
         session.close()
-
