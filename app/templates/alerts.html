@@ -19,7 +19,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script data-cfasync="false">
   document.addEventListener('DOMContentLoaded', () => {
   async function fetchJSON(url) {
     const r = await fetch(url);
