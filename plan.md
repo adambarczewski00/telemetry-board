@@ -15,6 +15,24 @@ telemetry-board/
 
 ## Dzień 1 — Fundamenty + pierwszy przepływ
 
+### Aktualizacja (12‑11): status i luki
+
+- Status: F0–F3 zrealizowane; F4 w dużej części (UI, testy, README). Compose uruchamia api/worker/beat/postgres/redis/prometheus; Prometheus scrapuje oba endpointy.
+- Luki vs. pierwotny plan:
+  - CI: Trivy działa jako skan FS (OK), brak skanu obrazów Docker → TODO.
+  - Metryki API: brak osobnego licznika błędów → TODO dodać `api_errors_total` lub label w histogramie.
+  - Alerty per‑asset: brak pól per‑asset (progi/okno) → obecną wersję sterujemy ENV globalnie; ewentualne rozszerzenie schematu → TODO (migration + API).
+  - Logowanie JSON alertów: niezaimplementowane → TODO (strukturalne logi przy tworzeniu alertu).
+  - Provider fallback: obecnie tylko CoinGecko → TODO (po MVP).
+  - Backfill: tryb „portfolio” – automatyczny ensure_backfill wyłączony; README wymaga doprecyzowania → TODO dopisać.
+
+Najbliższe kroki (propozycja):
+- [ ] Dodać krok „Trivy image” w CI (po `docker compose build`).
+- [ ] Dodać licznik błędów HTTP w middleware API.
+- [ ] W README doprecyzować zachowanie backfill (portfolio vs. produkcja).
+- [ ] (Opcjonalnie) per‑asset `alert_pct`/`alert_window_min` + migracja i użycie w `compute_alerts`.
+- [ ] (Opcjonalnie) logi JSON dla alertów.
+
 ### F0 — Repo + CI + Compose (2–3 h)
 
 1. **Repo**: jak opisałeś (README/LICENCE/CONTRIBUTING/CODEOWNERS/.editorconfig/.gitignore).
@@ -68,7 +86,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
       - REDIS_URL=redis://redis:6379/0
-      - PROMETHEUS_MULTIPROC_DIR=/tmp/metrics
+      - ENABLE_METRICS_ENDPOINT=true
     ports:
       - "8000:8000"
     healthcheck:
@@ -83,10 +101,12 @@ services:
   worker:
     build:
       context: .
-    dockerfile: Dockerfile.worker
+      dockerfile: Dockerfile.worker
     environment:
       - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
       - REDIS_URL=redis://redis:6379/0
+      - ENABLE_WORKER_METRICS=true
+      - WORKER_METRICS_PORT=8001
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'ss -ltn | grep -q :8001'"]
       interval: 10s
@@ -147,15 +167,17 @@ global:
 
 scrape_configs:
   - job_name: "api"
+    metrics_path: /metrics
     static_configs:
       - targets: ["api:8000"]
 
   - job_name: "worker"
+    metrics_path: /
     static_configs:
       - targets: ["worker:8001"]
 ```
 
-7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`. — ✔️ (dodano .github/workflows/ci.yml)
+7. **CI (GitHub Actions)** — `ubuntu-latest`, Python 3.11, ruff/mypy/pytest, build obrazów, Trivy z `exit-code: 0`. — ✔️ (dodano .github/workflows/ci.yml). TODO: dodać krok `trivy image` dla zbudowanych obrazów, aby spełnić „scan image” z wymagań.
 
 8. **README** — sekcja „Uruchomienie na Ubuntu” z komendami z Kroku 0 i `make compose-up`. — ✔️ (dodano szybki start, dev, konfigurację)
 
@@ -175,7 +197,7 @@ scrape_configs:
 
 2. **FastAPI**: `/health`, `/metrics`, `/assets` (GET/POST), `/prices`, `/alerts`.
    — ✔️ `/health`, ✔️ `/metrics`, ✔️ `/assets` GET/POST, ✔️ `/prices` (MVP), ✔️ `/alerts` (MVP).
-   — *Metryki*: `prometheus_client` + middleware (✔️ licznik i histogram).
+   — *Metryki*: `prometheus_client` + middleware (✔️ licznik i histogram). TODO: osobny licznik błędów HTTP.
    — *Ważne*: Nie wystawiaj `/metrics` publicznie poza siecią compose (lokalnie wystawione przez port 8000 dla demo).
 
 3. **Konfiguracja** przez zmienne środowiskowe (jak w compose). — częściowo (app: `ENABLE_METRICS_ENDPOINT`, `DATABASE_URL` dla DB; worker: `REDIS_URL`, `ENABLE_WORKER_METRICS`, `WORKER_METRICS_PORT`)
@@ -191,7 +213,7 @@ scrape_configs:
 ### F2 — Worker + pierwszy realny fetch (2–3 h)
 
 1. **Celery app** (Redis broker/backend) — zarejestruj zadania. — ✔️ (bazowy worker + `ping` + rejestracja tasks)
-2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). — ✔️ (task + harmonogram przez Celery Beat, env: ASSETS/FETCH_INTERVAL_SECONDS)
+2. **Zadania periodyczne**: `fetch_price(asset)` co 1–5 min → zapis do `price_history` (UPSERT po `(asset_id, ts)`). — ✔️ (task + harmonogram przez Celery Beat, env: ASSETS/FETCH_INTERVAL_SECONDS). Idempotencja: unikalność `(asset_id, ts)` i deduplikacja w backfill; cykliczny fetch zapisuje „now”, więc naturalnie unika duplikatów przy stałym interwale.
 3. **Źródło**: CoinGecko/alternatywa (requests + backoff). — ✔️ (MVP: CoinGecko simple/price; testy z mockiem)
 4. **Metryki workera**: `prometheus_client.start_http_server(8001)` (wewnątrz kontenera `worker`). — ✔️ (liczniki + histogram dla taska)
 
@@ -207,7 +229,7 @@ scrape_configs:
 
 ### F3 — Alerty procentowe + endpointy (2 h)
 
-* Reguła N% w M min, parametry globalne/per-asset. — ✔️ (ENV: ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT)
+* Reguła N% w M min, parametry globalne/per-asset. — ✔️ (ENV: ALERT_WINDOW_MINUTES, ALERT_THRESHOLD_PCT). Per‑asset progi/okna — TODO (rozszerzenie tabeli `assets` i modyfikacja `compute_alerts`).
 * Task okresowy liczy `change_pct` i zapisuje do `alerts`. — ✔️ (`compute_alerts` + beat)
 * `/alerts?asset=BTC&limit=20`. — ✔️ (MVP z F1)
 * Logi JSON ze szczegółami alertu. — TODO (opcjonalnie)
@@ -242,11 +264,12 @@ scrape_configs:
 ---
 
 ## Wzorce JSON (MVP) — bez zmian
-
-* `GET /assets`
-* `POST /assets`
-* `GET /prices?asset=BTC&window=24h`
-* `GET /alerts?asset=BTC&limit=20`
+— Aktualny kształt odpowiedzi (z repo):
+* `GET /assets` → `[{"id":1,"symbol":"BTC","name":null,"created_at":"..."}]`
+* `POST /assets` (201) → `{"id":2,"symbol":"ETH","name":"Ethereum","created_at":"..."}`
+* `GET /prices?asset=BTC&window=24h` → `[{"ts":"2025-11-10T10:00:00Z","price":37123.12}, ...]`
+* `GET /prices/summary?asset=BTC&window=24h` → `{"points":42,"first":...,"last":...,"min":...,"max":...,"avg":...}`
+* `GET /alerts?asset=BTC&limit=20` → `[{"id":1,"asset_id":1,"triggered_at":"...","window_minutes":60,"change_pct":5.2}]`
 
 ---
 
@@ -550,3 +573,15 @@ Możliwe rozszerzenia (po MVP):
 - Zamiast pollingu: SSE/WebSocket tylko dla wykresu.
 - Uproszczone KPI na Overview z `/prices/summary`.
 - Dodanie formularza tworzenia alertów użytkownika (POST/DELETE /alerts — poza MVP).
+  beat:
+    image: telemetry-board-worker
+    environment:
+      - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
+      - REDIS_URL=redis://redis:6379/0
+      - ENABLE_BEAT=true
+      - ASSETS=BTC,ETH
+      - FETCH_INTERVAL_SECONDS=60
+    depends_on:
+      - redis
+      - postgres
+    command: ["celery", "-A", "worker.worker_app:celery_app", "beat", "--loglevel=info", "-s", "/tmp/celerybeat-schedule"]

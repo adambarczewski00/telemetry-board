@@ -13,6 +13,11 @@ REQUESTS = Counter("api_requests_total", "Total HTTP requests", ["method", "path
 LATENCY = Histogram(
     "api_request_duration_seconds", "Request duration seconds", ["path"]
 )
+ERRORS = Counter(
+    "api_errors_total",
+    "HTTP responses with status >= 400",
+    ["method", "path", "status"],
+)
 
 router = APIRouter()
 
@@ -31,8 +36,21 @@ def _path_label(request: Request) -> str:
 
 
 async def metrics_middleware(request: Request, call_next: RequestHandler) -> Response:
-    """Collect per-request counters and latency without touching the handlers."""
+    """Collect per-request counters, latency and error counts."""
     path_label = _path_label(request)
     REQUESTS.labels(method=request.method, path=path_label).inc()
     with LATENCY.labels(path=path_label).time():
-        return await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            # Count unhandled exceptions as 500s
+            ERRORS.labels(method=request.method, path=path_label, status="500").inc()
+            raise
+    # Count client/server error responses
+    if response.status_code >= 400:
+        ERRORS.labels(
+            method=request.method,
+            path=path_label,
+            status=str(response.status_code),
+        ).inc()
+    return response

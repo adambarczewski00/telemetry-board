@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 
+import json
+import logging
 from prometheus_client import Counter, Histogram
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -51,6 +53,15 @@ def compute_alerts(
             if asset is None:
                 return 0
 
+            # Prefer per-asset overrides when available
+            if asset.alert_window_min is not None and window_minutes is None:
+                window_m = int(asset.alert_window_min)
+            if asset.alert_pct is not None and threshold_pct is None:
+                try:
+                    threshold = float(asset.alert_pct)  # Numeric -> float
+                except Exception:
+                    pass
+
             now = datetime.now(timezone.utc)
             start = now - timedelta(minutes=window_m)
 
@@ -85,6 +96,21 @@ def compute_alerts(
                 db.add(alert)
                 db.commit()
                 ALERTS_TOTAL.labels(symbol=symbol_u).inc()
+                # Structured JSON log for alert event
+                try:
+                    payload = {
+                        "ts": now.isoformat(),
+                        "lvl": "info",
+                        "event": "alert_created",
+                        "asset": symbol_u,
+                        "window_minutes": window_m,
+                        "change_pct": float(change_pct),
+                        "threshold_pct": float(threshold),
+                    }
+                    logging.getLogger(__name__).info(json.dumps(payload))
+                except Exception:
+                    # logging must not break the task
+                    pass
                 return 1
             return 0
         finally:

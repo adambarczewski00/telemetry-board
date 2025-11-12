@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pre-commit-cache/
+.git/
+dev.db
+dist/
+build/
+telemetry_board.egg-info/
+node_modules/
+*.log
+tests/
+screenshots/

@@ -26,6 +26,31 @@ Zatrzymanie i sprzątanie:
 make compose-down
 ```
 
+## Endpoints (API)
+
+Przykładowe wywołania:
+
+```bash
+curl -s http://localhost:8000/health
+
+# Lista aktywów
+curl -s http://localhost:8000/assets/
+
+# Dodanie aktywa
+curl -s -X POST http://localhost:8000/assets/ \
+  -H 'content-type: application/json' \
+  -d '{"symbol":"BTC","name":"Bitcoin"}'
+
+# Ceny (okno 24h)
+curl -s 'http://localhost:8000/prices?asset=BTC&window=24h'
+
+# Podsumowanie 24h (szybsze do podglądu w UI)
+curl -s 'http://localhost:8000/prices/summary?asset=BTC&window=24h'
+
+# Alerty (ostatnie 20)
+curl -s 'http://localhost:8000/alerts?asset=BTC&limit=20'
+```
+
 ## Deployment (pierwsze wdrożenie na serwerze)
 
 Prosty, przewidywalny proces bez dodatkowych narzędzi — tylko Docker Compose.
@@ -97,6 +122,39 @@ Repo zawiera prosty skrypt ułatwiający standardowe operacje:
 ./deploy.sh down     # zatrzymanie (bez kasowania wolumenów)
 ```
 
+## Prometheus (przykładowe zapytania)
+
+W UI Prometheusa (`/targets`, `/graph`):
+
+- Ruch per endpoint: `sum by (path) (rate(api_requests_total[5m]))`
+- p95 latencja: `histogram_quantile(0.95, sum by (le, path) (rate(api_request_duration_seconds_bucket[5m])))`
+- Błędy HTTP per status: `sum by (status) (rate(api_errors_total[5m]))`
+- Skuteczne pobrania cen: `sum by (symbol) (rate(fetch_price_success_total[5m]))`
+- Alerty wygenerowane: `sum by (symbol) (rate(alerts_total[5m]))`
+
+## Networking sanity
+
+- Postgres/Redis nie mają wystawionych portów na hosta; dostęp tylko przez `docker compose exec`.
+- API na `localhost:8000`, Prometheus (opcjonalnie) `localhost:9090`.
+- UFW: otwórz tylko 8000 (i 9090 w zaufanej sieci), reszta zamknięta.
+
+## Badge CI (opcjonalnie)
+
+Dodaj w README (zastąp `ORG/REPO`):
+
+```
+[![CI](https://github.com/ORG/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/ORG/REPO/actions/workflows/ci.yml)
+```
+
+## CI (lint/test/build/scan)
+
+Workflow CI uruchamia:
+- Lint (ruff), typecheck (mypy), testy (pytest),
+- Build obrazów (compose) oraz build tagowanych: `telemetry-board-api:latest`, `telemetry-board-worker:latest`,
+- Skan bezpieczeństwa Trivy:
+  - skan systemu plików repo (FS),
+  - skan obrazów Docker (image) — nieblokujący (continue-on-error), poważne poziomy: CRITICAL,HIGH.
+
 ## Praca deweloperska (lokalnie)
 
 ```bash
@@ -132,20 +190,27 @@ celery -A worker.worker_app.celery_app worker --loglevel=info
   - `ENABLE_BEAT` — włącza harmonogram zadań (fetch/prune/alerts).
   - `ASSETS` — lista symboli do pobierania, np. `BTC,ETH`.
   - `FETCH_INTERVAL_SECONDS` — interwał pobierania cen (domyślnie: 300).
-  - Backfill: `ENABLE_BACKFILL_ON_START` — czy uruchamiać backfill przy starcie Beat (domyślnie: włączone) oraz
-    `BACKFILL_HOURS` — ile godzin cofnąć dane przy backfillu (domyślnie: 168 = 7 dni; wymagane, by działało okno 7d w UI).
-    Dodatkowo `BACKFILL_CHECK_SECONDS` — jak często wykonywać zadanie kontrolne `ensure_backfill` (domyślnie: 600s),
-    które dogania braki jeśli backfill startowy się nie powiódł.
-  - `ALERT_WINDOW_MINUTES` — okno liczenia alertów (domyślnie: 60).
-  - `ALERT_THRESHOLD_PCT` — próg alertu w % (domyślnie: 5).
+  - Backfill: tryb „portfolio” — automatyczny backfill jest wyłączony domyślnie (brak wpisów w harmonogramie).
+    Zadania `backfill_prices`/`ensure_backfill` są dostępne do uruchomienia ręcznego (np. `celery call`), a w compose
+    dane do wykresów 7d zapewnia `seed_mock_prices` (syntetyczne dane) przy `ENABLE_MOCK_SEED=true`.
+  - Alerty (globalnie): `ALERT_WINDOW_MINUTES` (domyślnie: 60), `ALERT_THRESHOLD_PCT` (domyślnie: 5).
   - Retencja: `RETENTION_DAYS` — ile dni trzymać próbki (domyślnie: 30; ustaw `0`, aby wyłączyć sprzątanie) oraz
     `RETENTION_INTERVAL_SECONDS` — jak często uruchamiać sprzątanie (domyślnie: 86400 = 1 dzień).
     Zadanie `prune_old_prices` usuwa rekordy starsze niż `RETENTION_DAYS` — pomocne, by kontrolować zużycie dysku.
 
 ## Metryki
 
-- API: `/metrics` (tekst Prometheusa). Zliczane są: `api_requests_total`, `api_request_duration_seconds`.
+- API: `/metrics` (tekst Prometheusa). Zliczane są:
+  - `api_requests_total{method,path}` — liczba żądań,
+  - `api_request_duration_seconds{path}` — histogram czasu trwania,
+  - `api_errors_total{method,path,status}` — liczba odpowiedzi o statusie >= 400.
 - Worker: endpoint HTTP uruchamiany przez `prometheus_client.start_http_server` (domyślnie port 8001).
+
+## Alerty per‑asset (opcjonalnie)
+
+- Tabela `assets` posiada opcjonalne pola konfiguracyjne: `alert_pct` i `alert_window_min`.
+- `compute_alerts` preferuje wartości per‑asset, a gdy są puste — korzysta z ENV: `ALERT_THRESHOLD_PCT`, `ALERT_WINDOW_MINUTES`.
+- Aktualne API `/assets` nie wystawia jeszcze edycji tych pól (można ustawić z poziomu bazy; API zostanie rozszerzone w kolejnych iteracjach).
 
 ## Licencja
 
