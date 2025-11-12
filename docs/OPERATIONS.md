@@ -21,8 +21,10 @@ Poniżej znajdziesz podsumowanie wprowadzonych zmian oraz instrukcje „co dalej
   - Dockerfile nie instalują dodatkowych pakietów systemowych (obrazy pozostają „slim”).
 - Dokumentacja i narzędzia
   - `README.md`: doprecyzowano Alembic (`-c alembic.ini`), dodano skróty `deploy.sh` oraz sekcję o prostym CD.
+  - `README.md`: opisano metrykę `api_errors_total{method,path,status}` oraz skan obrazów Trivy w CI.
   - `deploy.sh`: gotowy zestaw komend (`up/update/status/logs/down`).
   - `/.github/workflows/cd.yml`: prosty CD – na `push` do `main` (lub ręcznie) uruchamia `./deploy.sh update` na self‑hosted runnerze.
+  - Tryb portfolio: doprecyzowano, że automatyczny backfill jest wyłączony; dane dla 7d w demie zapewnia `seed_mock_prices`.
 
 Gałąź robocza: `feature/deploy_polish` (scal do `main`, aby aktywować CD).
 
@@ -34,6 +36,7 @@ Gałąź robocza: `feature/deploy_polish` (scal do `main`, aby aktywować CD).
   - `make lint && make typecheck && make test`
   - `uvicorn app.main:app --reload --port 8000`
   - Health: `curl -fsS http://localhost:8000/health`
+  - Metryki (dev): `ENABLE_METRICS_ENDPOINT=true uvicorn app.main:app --port 8000` i `curl -s :8000/metrics | head`
 
 ## 3) Co Ty masz zrobić – serwer (deploy)
 
@@ -46,7 +49,69 @@ Gałąź robocza: `feature/deploy_polish` (scal do `main`, aby aktywować CD).
   - `./deploy.sh status` → `api` i `worker` powinny być `healthy`.
   - `docker compose exec worker id` → `uid=65534 gid=65534`.
   - Health: `curl -fsS http://localhost:8000/health`.
-  - Metryki: `curl -s http://localhost:8000/metrics | head`.
+  - Metryki: `curl -s http://localhost:8000/metrics | head` (powinno zawierać m.in. `api_requests_total`, `api_request_duration_seconds`, `api_errors_total`).
+
+## Hosting przez Cloudflare Tunnel (bez reverse proxy, bez otwierania portów)
+
+Cel: Uvicorn serwuje API w sieci Docker, Cloudflare zapewnia TLS/WAF i publiczny dostęp do hostów
+`api.aionflow.net` i (opcjonalnie) `prometheus.aionflow.net` przez tunel — bez publikowania portów 8000/9090.
+
+1) Utwórz tunel w Cloudflare Zero Trust
+- Zero Trust → Tunnels → Create a tunnel → nadaj nazwę.
+- Po utworzeniu pobierz `credentials.json` (dla danego Tunnel UUID) lub wykonaj polecenie instalacyjne loklanie i skopiuj plik.
+- Zapisz plik jako `./ops/cloudflared/<TUNNEL-UUID>.json` (nie commituj sekretów do repo publicznego!).
+
+2) W repo: konfiguracja i compose override
+- Edytuj `ops/cloudflared/config.yml`: podmień `TUNNEL-UUID` na swój.
+- Upewnij się, że DNS hosty odpowiadają domenie (tu: `aionflow.net`):
+  - `api.aionflow.net` → service: `http://api:8000`
+  - `prometheus.aionflow.net` → service: `http://prometheus:9090` (zalecane za Cloudflare Access)
+- Uruchom z override dla tunelu:
+  ```bash
+  docker compose -f docker-compose.yml -f ops/compose.tunnel.yml up -d --build
+  ```
+  Override usuwa `ports:` z `api` i `prometheus`, dodaje serwis `cloudflared`.
+
+3) Mapowanie hostów (Public Hostnames)
+- W Cloudflare Zero Trust → Tunnels → twój tunel → Public Hostnames dodaj:
+  - Hostname: `api.aionflow.net` → `http://api:8000`
+  - Hostname: `prometheus.aionflow.net` → `http://prometheus:9090`
+  (jeśli używasz pliku konfiguracyjnego, wpisy w `ingress:` już to odwzorowują)
+
+4) Zabezpieczenie Prometheusa
+- Zero Trust → Access → Applications: dodaj aplikację `prometheus.aionflow.net` i politykę (np. Email OTP, domena firmowa).
+- Alternatywnie, nie wystawiaj Prometheusa publicznie i korzystaj z `docker compose exec`.
+
+5) Weryfikacja
+- `curl -s https://api.aionflow.net/health` → `{ "status": "ok" }`
+- `https://api.aionflow.net/metrics` (jeśli `ENABLE_METRICS_ENDPOINT=true`) – włącz tylko, jeśli chcesz expose’ować metryki.
+- `https://prometheus.aionflow.net/targets` (za Access, jeśli skonfigurowany).
+
+Uwagi
+- Postgres/Redis nadal bez `ports:` — pozostają prywatne (tak jak w podstawowym compose).
+- W środowiskach produkcyjnych rozważ `ENABLE_METRICS_ENDPOINT=false` i obserwację API przez wewnętrznego Prometheusa.
+- `cloudflared` w compose używa pliku `ops/cloudflared/config.yml` i wymaga obecności pliku poświadczeń `<UUID>.json` w tym samym katalogu.
+
+### Przydatne komendy operacyjne
+
+- PSQL w kontenerze Postgresa:
+  - `docker compose exec -e PGPASSWORD=app postgres psql -U app -d app`
+- Redis CLI w kontenerze:
+  - `docker compose exec redis redis-cli ping`
+- Ręczne zadanie Celery (seed/backfill):
+  - `docker compose exec worker celery -A worker.worker_app:celery_app call seed_mock_prices --args='["BTC", 168, 300]'`
+  - `docker compose exec worker celery -A worker.worker_app:celery_app call backfill_prices --args='["BTC", 168]'`
+- Podgląd logów:
+  - `./deploy.sh logs`
+
+### Kopie zapasowe (proste)
+
+- Dump bazy (w kontenerze postgres):
+  - `docker compose exec -e PGPASSWORD=app postgres pg_dump -U app -d app -Fc -f /tmp/app.dump`
+  - `docker compose cp postgres:/tmp/app.dump ./app.dump`
+- Przywrócenie (uwaga na downtime):
+  - `docker compose cp ./app.dump postgres:/tmp/app.dump`
+  - `docker compose exec -e PGPASSWORD=app postgres pg_restore -U app -d app -c /tmp/app.dump`
 
 ## 4) Continuous Deployment (opcjonalne)
 

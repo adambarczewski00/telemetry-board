@@ -1,0 +1,15 @@
+# Cloudflare Tunnel configuration
+# Fill in your actual Tunnel UUID and ensure the credentials JSON is present
+# at /etc/cloudflared/<TUNNEL-UUID>.json (mounted via volume from ./ops/cloudflared).
+
+tunnel: TUNNEL-UUID
+credentials-file: /etc/cloudflared/TUNNEL-UUID.json
+
+ingress:
+  # Public hostnames → internal services (no host ports exposed)
+  - hostname: api.aionflow.net
+    service: http://api:8000
+  - hostname: prometheus.aionflow.net
+    service: http://prometheus:9090
+  # Default: 404
+  - service: http_status:404

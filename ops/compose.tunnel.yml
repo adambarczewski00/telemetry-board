@@ -1,0 +1,16 @@
+services:
+  # Remove host port publishes when using Cloudflare Tunnel
+  api:
+    ports: []
+  prometheus:
+    ports: []
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
+    volumes:
+      - ./ops/cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - api
+      - prometheus

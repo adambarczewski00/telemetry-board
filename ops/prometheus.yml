@@ -14,3 +14,6 @@ scrape_configs:
     metrics_path: /
     static_configs:
       - targets: ["worker:8001"]
+web:
+  username: admin
+  password: strongpassword123

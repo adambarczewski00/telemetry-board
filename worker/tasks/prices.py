@@ -91,7 +91,8 @@ def _session() -> Session:
     )()
 
 
-@celery_app.task(bind=True, name="fetch_price")
+# Rate-limit upstream calls defensively to stay within free tier constraints.
+@celery_app.task(bind=True, name="fetch_price", rate_limit="30/m")
 def fetch_price(self: object, symbol: str) -> float:
     symbol_u = symbol.upper()
     with FETCH_DURATION.labels(symbol=symbol_u).time():

@@ -48,6 +48,33 @@ jobs:
       - name: Build docker images
         run: docker compose build --no-cache
 
+      - name: Build API image (tagged)
+        run: docker build -t telemetry-board-api:latest -f Dockerfile.api .
+
+      - name: Build Worker image (tagged)
+        run: docker build -t telemetry-board-worker:latest -f Dockerfile.worker .
+
+      - name: Trivy Image scan (api)
+        uses: aquasecurity/trivy-action@0.20.0
+        continue-on-error: true
+        with:
+          scan-type: 'image'
+          image-ref: 'telemetry-board-api:latest'
+          hide-progress: true
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          format: 'table'
+
+      - name: Trivy Image scan (worker)
+        uses: aquasecurity/trivy-action@0.20.0
+        continue-on-error: true
+        with:
+          scan-type: 'image'
+          image-ref: 'telemetry-board-worker:latest'
+          hide-progress: true
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          format: 'table'
       - name: Trivy FS scan (non-blocking)
         uses: aquasecurity/trivy-action@0.20.0
         continue-on-error: true
