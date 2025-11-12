@@ -14,8 +14,10 @@ require_tools() {
 # Wrapper around docker compose that supports optional overrides via
 # DEPLOY_OVERRIDES (e.g. "-f ops/compose.tunnel.yml -f ops/compose.prometheus-auth.yml").
 dc() {
+  # Always include the base compose file, allow optional overrides via DEPLOY_OVERRIDES
+  # Example: DEPLOY_OVERRIDES="-f ops/compose.tunnel.yml -f ops/compose.prometheus-auth.yml"
   # shellcheck disable=SC2086
-  docker compose ${DEPLOY_OVERRIDES:-} "$@"
+  docker compose -f docker-compose.yml ${DEPLOY_OVERRIDES:-} "$@"
 }
 
 init() {
