@@ -9,6 +9,9 @@ ingress:
   # Public hostnames → internal services (no host ports exposed)
   - hostname: api.aionflow.net
     service: http://api:8000
+    originRequest:
+      # Uvicorn runs HTTP/1.1; avoid occasional issues with HTTP/2 to origin
+      http2Origin: false
   - hostname: prometheus.aionflow.net
     service: http://prometheus:9090
     originRequest:

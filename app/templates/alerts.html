@@ -30,7 +30,16 @@
   async function populateAssets() {
     const sel = document.getElementById('asset-select');
     sel.innerHTML = '';
-    const assets = await fetchJSON('/assets');
+    let assets = [];
+    try {
+      assets = await fetchJSON('/assets');
+    } catch (e) {
+      const tbody = document.getElementById('alerts-body');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="3"><em>Failed to load assets (${String(e)}).</em></td>`;
+      tbody.appendChild(tr);
+      return;
+    }
     const empty = document.getElementById('assets-empty');
     if (!assets.length) {
       empty.style.display = '';
@@ -50,7 +59,15 @@
     const tbody = document.getElementById('alerts-body');
     tbody.innerHTML = '';
     if (!sel.value) return;
-    const alerts = await fetchJSON(`/alerts?asset=${encodeURIComponent(sel.value)}&limit=50`);
+    let alerts = [];
+    try {
+      alerts = await fetchJSON(`/alerts?asset=${encodeURIComponent(sel.value)}&limit=50`);
+    } catch (e) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="3"><em>Failed to load alerts (${String(e)}).</em></td>`;
+      tbody.appendChild(tr);
+      return;
+    }
     if (!alerts.length) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan="3"><em>No alerts yet.</em></td>`;
