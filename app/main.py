@@ -6,7 +6,6 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from .metrics import metrics_middleware, router as metrics_router
 from .api.assets import router as assets_router
@@ -28,8 +27,6 @@ def create_app() -> FastAPI:
     application = FastAPI(title="Crypto Telemetry Board")
     # Attach Prometheus instrumentation to every HTTP request.
     application.middleware("http")(metrics_middleware)
-    # Respect X-Forwarded-* from Cloudflare/Cloudflared to generate correct URLs (https)
-    application.add_middleware(ProxyHeadersMiddleware)
 
     # Ensure database schema exists when the service starts (dev/compose friendly).
     # In production you may prefer running Alembic migrations separately.
