@@ -39,7 +39,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script data-cfasync="false">
   document.addEventListener('DOMContentLoaded', () => {
   const SYMBOL = {{ symbol|tojson }};
   let WINDOW = '24h';
