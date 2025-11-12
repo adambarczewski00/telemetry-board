@@ -16,9 +16,26 @@ make compose-up
 # Zdrowie API
 curl http://localhost:8000/health # => {"status":"ok"}
 
-# Prometheus (opcjonalnie)
-# przeglądarka: http://localhost:9090/targets
-```
+  # Prometheus (opcjonalnie)
+  # przeglądarka: http://localhost:9090/targets
+  ```
+
+## Szybki start: Cloudflare Tunnel + Basic Auth (Prometheus)
+
+Chcesz publiczny dostęp bez otwierania portów? Użyj Cloudflare Tunnel i włącz Basic Auth dla Prometheusa.
+
+- Umieść poświadczenia tunelu w `ops/cloudflared/<TUNNEL-UUID>.json` i ustaw `TUNNEL-UUID` w `ops/cloudflared/config.yml`.
+- (Opcjonalnie) Ustaw w `ops/prometheus/web.yml` sekcję `basic_auth_users` z własnym hashem bcrypt (przykład w pliku).
+- Uruchom z override’ami:
+  ```bash
+  docker compose \
+    -f docker-compose.yml \
+    -f ops/compose.tunnel.yml \
+    -f ops/compose.prometheus-auth.yml \
+    up -d --build
+  ```
+- Skonfiguruj hosty w Zero Trust → Tunnels → Public Hostnames:
+  `api.aionflow.net → http://api:8000`, `prometheus.aionflow.net → http://prometheus:9090`.
 
 Zatrzymanie i sprzątanie:
 

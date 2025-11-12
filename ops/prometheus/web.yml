@@ -13,3 +13,8 @@
 #      openssl passwd -6  # (this is SHA512-crypt, NOT bcrypt; prefer htpasswd)
 
 basic_auth_users: {}
+
+# Example (DO NOT USE IN PRODUCTION AS-IS):
+# basic_auth_users:
+#   admin: $2y$12$BMtKQ3LssKBd4kw6Hk/XvexmBMLuquuiak45sB7PQftyuWQF5aqA6
+# Password used to produce above hash: "SuperBezpieczneHaslo123!"
