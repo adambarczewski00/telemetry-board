@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Overview · Telemetry Board{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Assets Overview</h2>
+  <p>List of tracked assets with last price and 24h change.</p>
+</hgroup>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symbol</th>
+      <th>Name</th>
+      <th class="num">Last Price</th>
+      <th class="num">24h Change</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="assets-body"></tbody>
+  </table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  function pct(a, b) {
+    if (b === 0) return 0;
+    return ((a - b) / b) * 100.0;
+  }
+
+  async function load() {
+    const tbody = document.getElementById('assets-body');
+    tbody.innerHTML = '';
+    const assets = await fetchJSON('/assets');
+    if (!assets.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="5"><em>No assets yet. POST /assets {\"symbol\":\"BTC\"} to add one.</em></td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+    for (const a of assets) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${a.symbol}</td><td>${a.name ?? ''}</td><td class="num price">—</td><td class="num change">—</td><td><a href="/ui/assets/${a.symbol}">Open</a></td>`;
+      tbody.appendChild(tr);
+      try {
+        // Faster first paint: use compact summary endpoint
+        const sum = await fetchJSON(`/prices/summary?asset=${encodeURIComponent(a.symbol)}&window=24h`);
+        if (sum.points > 0 && sum.last !== null && sum.first !== null) {
+          const last = Number(sum.last);
+          const first = Number(sum.first);
+          tr.querySelector('td.price').textContent = last.toFixed(2);
+          const change = pct(last, first);
+          const changeCell = tr.querySelector('td.change');
+          const sign = change >= 0 ? '+' : '';
+          changeCell.textContent = `${sign}${change.toFixed(2)}%`;
+          changeCell.classList.toggle('delta-pos', change >= 0);
+          changeCell.classList.toggle('delta-neg', change < 0);
+        } else {
+          tr.querySelector('td.price').textContent = '—';
+          tr.querySelector('td.change').textContent = '—';
+        }
+      } catch (e) {
+        tr.querySelector('td.price').textContent = 'n/a';
+        const changeCell = tr.querySelector('td.change');
+        changeCell.textContent = 'n/a';
+        changeCell.classList.remove('delta-pos', 'delta-neg');
+      }
+    }
+  }
+
+  load();
+  // simple polling
+  setInterval(load, 15000);
+  });
+</script>
+{% endblock %}

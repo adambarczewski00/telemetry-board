@@ -26,11 +26,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    image: telemetry-board-worker
     environment:
       - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
       - REDIS_URL=redis://redis:6379/0
       - ENABLE_WORKER_METRICS=true
       - WORKER_METRICS_PORT=8001
+      # Portfolio/demo: seed synthetic history if DB is empty
+      - ENABLE_MOCK_SEED=true
+      - MOCK_SEED_HOURS=168
+      - MOCK_SEED_INTERVAL_SECONDS=300
     depends_on:
       - postgres
       - redis
@@ -45,16 +50,16 @@ services:
 
   beat:
     # Celery Beat scheduler to trigger periodic fetch tasks.
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
+    image: telemetry-board-worker
     environment:
       - DATABASE_URL=postgresql+psycopg://app:app@postgres:5432/app
       - REDIS_URL=redis://redis:6379/0
       - ENABLE_WORKER_METRICS=false
       - ENABLE_BEAT=true
       - ASSETS=BTC,ETH
-      - FETCH_INTERVAL_SECONDS=300
+      - FETCH_INTERVAL_SECONDS=60
+      - ENABLE_BACKFILL_ON_START=false
+      - BACKFILL_HOURS=0
     depends_on:
       - redis
       - postgres

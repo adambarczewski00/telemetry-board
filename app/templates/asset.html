@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Asset {{ symbol }} · Telemetry Board{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Asset: {{ symbol }}</h2>
+  <p>Price history and recent alerts.</p>
+  <p><a href="/ui">Back</a></p>
+</hgroup>
+
+<article>
+  <header>
+    <strong>Price history (<span id="window-label">24h</span>)</strong>
+    <div style="float:right">
+      <small>Last: <span id="last-price" class="num">—</span> · <span id="window-label-inline">24h</span>: <span id="last-change" class="num">—</span></small>
+    </div>
+    <div style="margin-top: .5rem">
+      <small>Window:</small>
+      <div role="group" aria-label="Select window">
+        <button class="secondary" data-window="1h">1h</button>
+        <button class="secondary" data-window="24h">24h</button>
+        <button class="secondary" data-window="7d">7d</button>
+      </div>
+    </div>
+  </header>
+  <canvas id="chart" height="100"></canvas>
+  <p id="chart-empty" style="display:none"><em>No price data yet for this asset.</em></p>
+  <footer>
+    <small>Updates every 15s</small>
+  </footer>
+  </article>
+
+<h3>Recent Alerts</h3>
+<table>
+  <thead>
+    <tr><th>Time</th><th class="num">Window</th><th class="num">Change %</th></tr>
+  </thead>
+  <tbody id="alerts-body"></tbody>
+  </table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  const SYMBOL = {{ symbol|tojson }};
+  let WINDOW = '24h';
+
+  async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  let chart;
+  function ensureChart(ctx) {
+    if (chart) return chart;
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: SYMBOL, data: [], fill: false, tension: 0.2 }] },
+      options: {
+        interaction: { intersect: false, mode: 'index' },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8 } },
+          y: {
+            ticks: {
+              callback: (v) => new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
+            }
+          }
+        }
+      }
+    });
+    return chart;
+  }
+
+  function fmtLabel(ts) {
+    const d = new Date(ts);
+    if (WINDOW === '7d') {
+      return new Intl.DateTimeFormat(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d);
+    }
+    // 1h / 24h
+    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(d);
+  }
+
+  async function loadChart() {
+    const prices = await fetchJSON(`/prices?asset=${encodeURIComponent(SYMBOL)}&window=${encodeURIComponent(WINDOW)}`);
+    const empty = document.getElementById('chart-empty');
+    if (!prices.length) {
+      empty.style.display = '';
+      const c = ensureChart(document.getElementById('chart').getContext('2d'));
+      c.data.labels = [];
+      c.data.datasets[0].data = [];
+      c.update();
+      // Retry soon after initial load so backfill can appear quickly
+      setTimeout(loadChart, 2000);
+      return;
+    }
+    empty.style.display = 'none';
+    const labels = prices.map(p => fmtLabel(p.ts));
+    const data = prices.map(p => Number(p.price));
+    // Update summary
+    const first = data[0];
+    const last = data[data.length - 1];
+    const change = ((last - first) / first) * 100.0;
+    const lastPrice = document.getElementById('last-price');
+    const lastChange = document.getElementById('last-change');
+    lastPrice.textContent = Number(last).toFixed(2);
+    lastChange.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+    lastChange.classList.toggle('delta-pos', change >= 0);
+    lastChange.classList.toggle('delta-neg', change < 0);
+    const ctx = document.getElementById('chart').getContext('2d');
+    const c = ensureChart(ctx);
+    c.data.labels = labels;
+    c.data.datasets[0].data = data;
+    c.update();
+  }
+
+  async function loadAlerts() {
+    const tbody = document.getElementById('alerts-body');
+    tbody.innerHTML = '';
+    const alerts = await fetchJSON(`/alerts?asset=${encodeURIComponent(SYMBOL)}&limit=20`);
+    if (!alerts.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="3"><em>No alerts yet.</em></td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+    for (const a of alerts) {
+      const tr = document.createElement('tr');
+      const ts = new Date(a.triggered_at).toLocaleString();
+      const pct = Number(a.change_pct);
+      const signClass = pct >= 0 ? 'delta-pos' : 'delta-neg';
+      tr.innerHTML = `<td>${ts}</td><td class=\"num\">${a.window_minutes}m</td><td class=\"num ${signClass}\">${pct.toFixed(2)}%</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function refresh() {
+    loadChart();
+    loadAlerts();
+  }
+
+  // Window selector wiring
+  const windowButtons = Array.from(document.querySelectorAll('button[data-window]'));
+  function updateWindow(newWin) {
+    WINDOW = newWin;
+    document.getElementById('window-label').textContent = WINDOW;
+    document.getElementById('window-label-inline').textContent = WINDOW;
+    windowButtons.forEach(b => b.classList.toggle('contrast', b.dataset.window === WINDOW));
+    loadChart();
+  }
+  windowButtons.forEach(btn => btn.addEventListener('click', () => updateWindow(btn.dataset.window)));
+  // Set default highlight
+  updateWindow('24h');
+
+  refresh();
+  setInterval(refresh, 15000);
+  });
+</script>
+{% endblock %}

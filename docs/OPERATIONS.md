@@ -78,3 +78,89 @@ Gałąź robocza: `feature/deploy_polish` (scal do `main`, aby aktywować CD).
 
 ---
 W razie pytań mogę dorzucić wariant CD z publikacją obrazów do GHCR i `docker compose pull`, jeśli chcesz oddzielić build od serwera docelowego.
+Here’s a clear map of how your CI/CD works and how to use it.
+
+Overview
+
+CI builds confidence on every PR/push: lint, typecheck, tests, build.
+CD auto-updates the server from main using your self-hosted runner.
+Core files: .github/workflows/ci.yml, .github/workflows/cd.yml, deploy.sh, docker-compose.yml.
+CI Pipeline
+
+Workflow: .github/workflows/ci.yml
+Steps:
+Set up Python 3.11 and cache pip.
+Install project deps: pip install -e . plus ruff mypy pytest.
+Lint: ruff check .
+Typecheck: mypy app worker tests
+Tests: pytest -q with PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 and ANYIO_BACKEND=asyncio.
+Build images: docker compose build --no-cache to validate Dockerfiles.
+Purpose: catch style, typing, runtime regressions, and Docker build issues early.
+Tests
+
+Test client requires httpx (added in pyproject.toml) so imports succeed.
+Plugins disabled via PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 for determinism.
+AnyIO set to asyncio to keep FastAPI/Starlette stable in tests.
+CD Pipeline
+
+Workflow: .github/workflows/cd.yml
+Triggers: push to main and manual “Run workflow”.
+Runner: runs-on: [self-hosted, prod] (your server’s runner).
+Deploy step: runs ./deploy.sh update which:
+Builds images (docker compose build --no-cache)
+Restarts services (docker compose up -d)
+Applies DB migrations (alembic -c alembic.ini upgrade head)
+Deploy Script
+
+File: deploy.sh
+Commands:
+./deploy.sh up → start DBs → migrate → start app + worker + beat + Prometheus
+./deploy.sh update → rebuild images → restart → migrate
+status, logs, down, destroy for daily ops
+Docker And Health
+
+File: docker-compose.yml
+API healthcheck: Python stdlib HTTP GET on /health (no curl needed).
+Worker healthcheck: Python socket probe on port 8001.
+Non-root processes: user: "65534:65534" for worker and beat.
+Beat uses -s /tmp/celerybeat-schedule so it can write the schedule as non-root.
+How To Trigger
+
+CI:
+Push/PR to any branch → .github/workflows/ci.yml runs automatically.
+CD:
+Merge/push to main → .github/workflows/cd.yml runs on the self-hosted runner.
+Or run manually from GitHub Actions “Deploy” → “Run workflow”.
+Troubleshooting
+
+Worker still root: ensure the server has latest docker-compose.yml; then:
+docker compose up -d --force-recreate worker beat
+docker compose exec worker id → expect uid=65534
+Health “starting”: force recreate API to refresh healthcheck:
+docker compose up -d --force-recreate api
+Alembic issues: run inside container for logs:
+docker compose run --rm api alembic -c alembic.ini upgrade head
+If you want, I can also add a GHCR-based CD (build images in CI, docker compose pull on server) for faster, lighter deploys.
+
+
+
+
+
+## Konfiguracja backendu
+
+- API
+  - `ENABLE_METRICS_ENDPOINT` — odsłania `/metrics` (domyślnie wyłączone; włącz na wewnętrznych sieciach).
+- Worker/Beat
+  - `ENABLE_BEAT` — aktywuje harmonogram zadań (fetch/prune/alerts).
+  - `ASSETS` — lista symboli do pobierania, np. `BTC,ETH`.
+  - `FETCH_INTERVAL_SECONDS` — co ile sekund pobierać ceny (domyślnie 300).
+  - Backfill: `ENABLE_BACKFILL_ON_START` — uruchom backfill przy starcie Beata (domyślnie: włączone) oraz
+    `BACKFILL_HOURS` — rozmiar backfillu w godzinach (domyślnie 168 = 7 dni, aby UI 7d miało dane).
+    `BACKFILL_CHECK_SECONDS` — interwał okresowego zadania `ensure_backfill` (domyślnie 600s),
+    które nadrabia historię jeśli startowy backfill nie doszedł do skutku (np. kolejność startu usług).
+  - `ALERT_WINDOW_MINUTES` — okno czasowe dla alertów (domyślnie 60).
+  - `ALERT_THRESHOLD_PCT` — próg procentowy dla alertu (domyślnie 5).
+  - Retencja danych:
+    - `RETENTION_DAYS` — ile dni przechowywać dane cen (domyślnie 30). Ustaw `0`, aby wyłączyć czyszczenie.
+    - `RETENTION_INTERVAL_SECONDS` — interwał uruchamiania czyszczenia (domyślnie 86400).
+    - Zadanie `prune_old_prices` usuwa wiersze starsze niż `RETENTION_DAYS` — kontroluj dysk i rozmiar bazy.
