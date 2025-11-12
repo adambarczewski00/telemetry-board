@@ -1,26 +1,26 @@
 # Diagramy przepływu danych (Mermaid)
 
-Poniżej zestaw kluczowych przepływów jako diagramy Mermaid. Możesz je podejrzeć w VS Code (rozszerzenia Mermaid) lub w przeglądarce (np. GitHub renderuje podstawowe diagramy).
+Poniżej zestaw kluczowych przepływów jako diagramy Mermaid. Można je podejrzeć w VS Code (rozszerzenia Mermaid) lub w przeglądarce (np. GitHub renderuje podstawowe diagramy).
 
 ## 1) Przepływ wysokopoziomowy (architektura runtime)
 
 ```mermaid
 flowchart LR
-  subgraph Docker_Network[Docker network]
-    API[API (FastAPI)]
-    Worker[Worker (Celery)]
-    Beat[Beat (scheduler)]
+  subgraph DockerNet[Docker network]
+    API[API - FastAPI]
+    Worker[Worker - Celery]
+    Beat[Beat - scheduler]
     Redis[(Redis)]
     Postgres[(Postgres)]
     Prom[Prometheus]
   end
 
-  Beat -->|harmonogram| Worker
-  Worker -->|HTTP (ceny)| Provider[(Dostawca cen)]
+  Beat -->|schedule| Worker
+  Worker -->|HTTP ceny| Provider[Provider cen]
   Worker -->|INSERT| Postgres
   API -->|SELECT/INSERT| Postgres
-  API --- APIMetrics[[/metrics]]
-  Worker --- WorkerMetrics[[metrics :8001]]
+  API --- APIMetrics[metrics endpoint]
+  Worker --- WorkerMetrics[metrics 8001]
   Prom -->|scrape| APIMetrics
   Prom -->|scrape| WorkerMetrics
 
@@ -91,12 +91,12 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-  User[Użytkownik/curl] -- https + BasicAuth --> CF[Cloudflare Tunnel]
+  User[Klient] -- https + BasicAuth --> CF[Cloudflare Tunnel]
   CF --> Prom[Prometheus]
-  Prom -->|scrape /metrics| API[API]
-  Prom -->|scrape / (8001)| Worker[Worker]
-  API -. eksponuje /metrics .-
-  Worker -. eksponuje :8001 .-
+  Prom -->|scrape metrics| API[API]
+  Prom -->|scrape 8001| Worker[Worker]
+  API -. eksponuje metrics .-
+  Worker -. eksponuje 8001 .-
 ```
 
 ---
